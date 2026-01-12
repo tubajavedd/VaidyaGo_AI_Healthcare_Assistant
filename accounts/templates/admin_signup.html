@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin Signup</title>
+</head>
+<body>
+    <h2>Admin Signup</h2>
+
+    <form id="signupForm">
+        <input type="text" placeholder="Username" id="username" required /><br><br>
+        <input type="email" placeholder="Email" id="email" required /><br><br>
+        <input type="text" placeholder="Phone" id="phone" required /><br><br>
+        <input type="password" placeholder="Password" id="password" required /><br><br>
+        <input type="password" placeholder="Confirm Password" id="confirm_password" required /><br><br>
+
+        <button type="submit">Create Admin</button>
+    </form>
+
+    <p id="result"></p>
+
+    <script>
+        document.getElementById("signupForm").addEventListener("submit", async function(e) {
+            e.preventDefault();
+
+            const response = await fetch("/api/admin/signup/", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    username: document.getElementById("username").value,
+                    email: document.getElementById("email").value,
+                    phone: document.getElementById("phone").value,
+                    password: document.getElementById("password").value,
+                    confirm_password: document.getElementById("confirm_password").value
+                })
+            });
+
+            const data = await response.json();
+            document.getElementById("result").innerText =
+                data.message || data.error;
+        });
+    </script>
+</body>
+</html>

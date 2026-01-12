@@ -16,17 +16,31 @@ def csrf_token_view(request):
 @csrf_protect
 def signup_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+
+        if not request.body:
+            return JsonResponse({"error": "Empty request body"}, status=400)
+
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         username = data.get("username")
         email = data.get("email")
         password = data.get("password")
 
+        if not all([username, email, password]):
+            return JsonResponse({"error": "Missing fields"}, status=400)
+
         if User.objects.filter(username=username).exists():
             return JsonResponse({"error": "Username already exists"}, status=400)
 
-        User.objects.create_user(username=username, email=email, password=password)
-        return JsonResponse({"message": "Signup successful", "user": username})
+        User.objects.create_user(
+            username=username,
+            email=email,
+            password=password
+        )
+        return JsonResponse({"message": "Signup successful", "user": username}, status=201)
 
     return render(request, "signup.html")
 
@@ -35,7 +49,14 @@ def signup_view(request):
 @csrf_protect
 def login_view(request):
     if request.method == "POST":
-        data = json.loads(request.body.decode("utf-8"))
+
+        if not request.body:
+            return JsonResponse({"error": "Empty request body"}, status=400)
+
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON"}, status=400)
 
         username = data.get("username")
         password = data.get("password")
