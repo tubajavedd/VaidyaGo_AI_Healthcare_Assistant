@@ -1,16 +1,26 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Feedback</title>
-</head>
-<body>
-    <h2>Website Feedback</h2>
+<!--<!DOCTYPE html>-->
+<!--<html>-->
+<!--<head>-->
+<!--    <title>Feedback</title>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h2>Website Feedback</h2>-->
 
-    <form method="POST">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Submit Feedback</button>
-    </form>
+<!--    <form method="POST">-->
+<!--        {% csrf_token %}-->
+<!--        {{ form.as_p }}-->
+<!--        <button type="submit">Submit Feedback</button>-->
+<!--    </form>-->
 
-</body>
-</html>
+<!--</body>-->
+<!--</html>-->
+<form method="post" action="/api/feedback/submit/">
+  {% csrf_token %}
+
+  <input type="text" name="full_name" placeholder="Full Name" />
+  <input type="email" name="email" placeholder="Email" />
+  <textarea name="feedback"></textarea>
+
+  <button type="submit">Submit</button>
+</form>
+
