@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # from rest_framework.decorators import api_view
 # from rest_framework.response import Response
 # from rest_framework import status
@@ -37,7 +37,7 @@ def submit_feedback(request):
         )
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-=======
+
 import json
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -88,4 +88,4 @@ def submit_feedback(request):
 
     # ---------- GET ----------
     return render(request, "feedback/feedback_form.html")
->>>>>>> 52910385590f9db81fe3c096e5ff281da2fc2497
+

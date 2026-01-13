@@ -25,11 +25,11 @@ SECRET_KEY = 'django-insecure-e*$sh*e9qjw@jx3-!)_y86bxte22w$yv816sogqkr@=ax!&o$)
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [
-    'tubajavedd.pythonanywhere.com',
-    'www.tubajavedd.pythonanywhere.com',
-]
-
+# ALLOWED_HOSTS = [
+#     'tubajavedd.pythonanywhere.com',
+#     'www.tubajavedd.pythonanywhere.com',
+# ]
+ALLOWED_HOSTS=['*']
 
 
 
@@ -43,6 +43,7 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 
@@ -56,10 +57,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'Auth',
-
     'corsheaders',
-
     'feedback',
+    'accounts',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -107,7 +107,9 @@ DATABASES = {
     }
 }
 AUTH_USER_MODEL = 'accounts.User'
-
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.CustomAuthBackend',
+    ]
 
 
 # Password validation
@@ -159,15 +161,18 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-from datetime import timedelta
-
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
 
+from datetime import timedelta
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+

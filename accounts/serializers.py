@@ -1,12 +1,16 @@
+from django.contrib.auth import authenticate
 from rest_framework import serializers
 from .models import User
+
+
+#****************SIGNUP***********
 
 class AdminSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ['username', 'email', 'phone', 'password']
+        fields = [ 'email', 'phone', 'password']
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -27,3 +31,35 @@ class AdminSignupSerializer(serializers.ModelSerializer):
         user.set_password(password)  # 🔐 HASH
         user.save()
         return user
+
+
+#*****************LOGIN**************
+
+class AdminLoginSerializer(serializers.Serializer):
+    username = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, data):
+        username = data.get('username', None)
+        email = data.get('email', None)
+        phone = data.get('phone', None)
+        password = data.get('password')
+
+        user = None
+
+        if email:
+            user = authenticate(email=email, password=password)
+        elif phone:
+            user = authenticate(phone=phone, password=password)
+        elif username:
+            user = authenticate(username=username, password=password)
+
+        if not user:
+            raise serializers.ValidationError("Invalid credentials")
+        if user.role != 'ADMIN':
+            raise serializers.ValidationError("User is not an admin")
+        
+        data['user'] = user
+        return data
