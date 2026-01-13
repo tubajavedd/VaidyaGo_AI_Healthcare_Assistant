@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from .utils import generate_username_from_email
 
 User = get_user_model()
 
@@ -22,21 +23,17 @@ def admin_signup(request):
 
     data = json.loads(request.body)
 
-    username = data.get("username")
     email = data.get("email")
     phone = data.get("phone")
     password = data.get("password")
     confirm_password = data.get("confirm_password")
 
     # ---------------- Validation ----------------
-    if not all([username, email, phone, password, confirm_password]):
+    if not all([ email, phone, password, confirm_password]):
         return JsonResponse({"error": "All fields are required"}, status=400)
 
     if password != confirm_password:
         return JsonResponse({"error": "Passwords do not match"}, status=400)
-
-    if User.objects.filter(username=username).exists():
-        return JsonResponse({"error": "Username already exists"}, status=400)
 
     if User.objects.filter(email=email).exists():
         return JsonResponse({"error": "Email already exists"}, status=400)
@@ -45,11 +42,12 @@ def admin_signup(request):
         return JsonResponse({"error": "Phone already exists"}, status=400)
 
     # ---------------- Create Admin ----------------
+    username = generate_username_from_email(email)
     user = User.objects.create(
         username=username,
+        role="ADMIN",
         email=email,
         phone=phone,
-        role="ADMIN",
         is_staff=True,
         is_superuser=True,
         password=make_password(password)
@@ -69,9 +67,32 @@ def admin_signup(request):
 
     return JsonResponse({
         "message": "Admin created successfully",
+         "username": user.username,
         "token": token
     }, status=201)
 
 # ------------------- HTML Page -------------------
 def admin_signup_page(request):
     return render(request, "admin_signup.html")
+
+
+#********LOGIN*************
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import AdminLoginSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+
+class AdminLoginView(APIView):
+    def post(self, request):
+        serializer = AdminLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'message': 'Login successful'
+        }, status=status.HTTP_200_OK)

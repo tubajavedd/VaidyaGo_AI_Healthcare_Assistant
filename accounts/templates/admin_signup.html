@@ -6,15 +6,15 @@
 <body>
     <h2>Admin Signup</h2>
 
-    <form id="signupForm">
-        <input type="text" placeholder="Username" id="username" required /><br><br>
-        <input type="email" placeholder="Email" id="email" required /><br><br>
-        <input type="text" placeholder="Phone" id="phone" required /><br><br>
-        <input type="password" placeholder="Password" id="password" required /><br><br>
-        <input type="password" placeholder="Confirm Password" id="confirm_password" required /><br><br>
+<form method="signup">
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="text" name="phone" placeholder="Phone" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <input type="password" name="confirm_password" placeholder="Confirm Password" required>
 
-        <button type="submit">Create Admin</button>
-    </form>
+    <button type="submit">Create Admin</button>
+</form>
+
 
     <p id="result"></p>
 
