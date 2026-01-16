@@ -60,6 +60,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'feedback',
     'accounts',
+     'rest_framework',
+    'rest_framework.authtoken',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -157,7 +159,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ALLOW_ADMIN_SIGNUP = True
 from pathlib import Path
 
-import os
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
