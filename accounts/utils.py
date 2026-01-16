@@ -1,6 +1,4 @@
 import re
-import random
-import string
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -14,13 +12,16 @@ def generate_username_from_email(email):
 
     # 3. ensure minimum length
     if len(base) < 6:
-        base += ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        base = base.ljust(6, '0')
 
     # 4. take first 6 characters
-    username = base[:6]
+    base = base[:6]
+    username = base
+    counter = 1
 
-    # 5. make sure username is unique
+    # 5. ensure uniqueness WITHOUT randomness
     while User.objects.filter(username=username).exists():
-        username = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+        username = f"{base}{counter}"
+        counter += 1
 
     return username

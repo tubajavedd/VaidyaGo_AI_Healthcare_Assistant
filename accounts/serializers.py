@@ -1,10 +1,24 @@
 from django.contrib.auth import authenticate
 from rest_framework import serializers
 from .models import User
+from rest_framework import serializers
+from .models import Doctor
+
+class DoctorSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Doctor
+        fields = [
+            'id',
+            'name',
+            'phone',
+            'specialty',
+            'experience',
+            'is_active'
+        ]
+
 
 
 #****************SIGNUP***********
-
 class AdminSignupSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -36,13 +50,11 @@ class AdminSignupSerializer(serializers.ModelSerializer):
 #*****************LOGIN**************
 
 class AdminLoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
-        username = data.get('username', None)
         email = data.get('email', None)
         phone = data.get('phone', None)
         password = data.get('password')
@@ -53,8 +65,6 @@ class AdminLoginSerializer(serializers.Serializer):
             user = authenticate(email=email, password=password)
         elif phone:
             user = authenticate(phone=phone, password=password)
-        elif username:
-            user = authenticate(username=username, password=password)
 
         if not user:
             raise serializers.ValidationError("Invalid credentials")
