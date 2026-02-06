@@ -22,5 +22,5 @@ urlpatterns = [
     path("auth/", include("Auth.urls")),
     path('api/feedback/', include('feedback.urls')),
     path('accounts/', include('accounts.urls')),
-
+    path('api/admin/',include('adminProfile.urls')),
 ]

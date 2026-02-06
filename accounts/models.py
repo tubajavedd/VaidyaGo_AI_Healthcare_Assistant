@@ -3,7 +3,26 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 from django.conf import settings
 
+#------------ADDRESS
 
+
+class Address(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    country = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    pincode = models.CharField(max_length=10)
+
+class Profile(models.Model):
+    POST_CHOICES = (
+        ('admin', 'Admin'),
+        ('doctor', 'Doctor'),
+    )
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    phone_number = models.CharField(max_length=15)
+    post = models.CharField(max_length=10, choices=POST_CHOICES)
+    language = models.CharField(max_length=50)
+    google_connected = models.BooleanField(default=False)
+    google_email = models.EmailField(null=True, blank=True)
 #doctor class
 
 
@@ -60,3 +79,4 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} Profile"
+

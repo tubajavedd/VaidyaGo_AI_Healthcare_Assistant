@@ -60,8 +60,12 @@ INSTALLED_APPS = [
     'corsheaders',
     'feedback',
     'accounts',
+<<<<<<< HEAD
+    'adminProfile',
+=======
      'rest_framework',
     'rest_framework.authtoken',
+>>>>>>> 66dc246b9b305a1f29323fd5068dcc63ab2b12c9
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -108,7 +112,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-AUTH_USER_MODEL = 'accounts.User'
+
 AUTHENTICATION_BACKENDS = [
     'accounts.backends.CustomAuthBackend',
     ]
@@ -178,4 +182,10 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
+<<<<<<< HEAD
 }
+=======
+}
+AUTH_USER_MODEL = 'accounts.User'
+
+>>>>>>> d057b919f4b6153a3a692750aedcfa1a879db74b
