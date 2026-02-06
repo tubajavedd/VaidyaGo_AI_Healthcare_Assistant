@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'feedback',
     'accounts',
+    'adminProfile',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -106,7 +107,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-AUTH_USER_MODEL = 'accounts.User'
+
 AUTHENTICATION_BACKENDS = [
     'accounts.backends.CustomAuthBackend',
     ]
@@ -177,5 +178,5 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
-
+AUTH_USER_MODEL = 'accounts.User'
 
