@@ -43,3 +43,4 @@ class DisconnectGoogle(APIView):
         profile.save()
 
         return Response({"message": "Google account disconnected"})
+
