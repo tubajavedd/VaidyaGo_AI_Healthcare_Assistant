@@ -60,12 +60,10 @@ INSTALLED_APPS = [
     'corsheaders',
     'feedback',
     'accounts',
-<<<<<<< HEAD
     'adminProfile',
-=======
      'rest_framework',
     'rest_framework.authtoken',
->>>>>>> 66dc246b9b305a1f29323fd5068dcc63ab2b12c9
+
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
