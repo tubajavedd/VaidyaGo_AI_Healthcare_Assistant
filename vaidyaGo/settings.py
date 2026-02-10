@@ -180,6 +180,10 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
+<<<<<<< HEAD
+}
+=======
 }
 AUTH_USER_MODEL = 'accounts.User'
 
+>>>>>>> d057b919f4b6153a3a692750aedcfa1a879db74b
