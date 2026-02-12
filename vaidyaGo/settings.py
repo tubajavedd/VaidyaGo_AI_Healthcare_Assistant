@@ -63,7 +63,10 @@ INSTALLED_APPS = [
     'adminProfile',
      'rest_framework',
     'rest_framework.authtoken',
+<<<<<<< HEAD
+=======
 
+>>>>>>> fc4c48e0251a362d0b3cc29c6b009b009824a5c0
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -181,5 +184,7 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+
 AUTH_USER_MODEL = 'accounts.User'
 
