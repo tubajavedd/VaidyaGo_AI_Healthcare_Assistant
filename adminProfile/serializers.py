@@ -12,4 +12,4 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Profile
-        fields = ['phone_number', 'post', 'language', 'google_connected', 'google_email', 'address']
+        fields = ['name','email','phone_number', 'post', 'language', 'google_connected', 'google_email', 'address']

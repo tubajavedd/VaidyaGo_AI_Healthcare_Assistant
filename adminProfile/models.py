@@ -23,6 +23,8 @@ class Profile(models.Model):
         on_delete=models.CASCADE,
         related_name='admin_profile'  # <-- add unique related_name
     )
+    name=models.CharField(max_length=20)
+    email=models.CharField(max_length=20)
     phone_number = models.CharField(max_length=15)
     post = models.CharField(max_length=10, choices=POST_CHOICES)
     language = models.CharField(max_length=50)
