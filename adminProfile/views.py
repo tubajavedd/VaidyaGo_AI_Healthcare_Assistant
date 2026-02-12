@@ -18,8 +18,6 @@ class AdminProfileView(APIView):
         profile, _ = Profile.objects.get_or_create(user=request.user)
         address, _ = Address.objects.get_or_create(user=request.user)
 
-        profile.name = request.data.get('name')
-        profile.email = request.data.get('email')
         profile.phone_number = request.data.get('phone_number')
         profile.post = request.data.get('post')
         profile.language = request.data.get('language')
