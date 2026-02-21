@@ -35,6 +35,7 @@ ALLOWED_HOSTS=['*']
 
 
 CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
     'https://tubajavedd.pythonanywhere.com',
     'https://www.tubajavedd.pythonanywhere.com',
 ]
@@ -115,6 +116,27 @@ AUTHENTICATION_BACKENDS = [
     ]
 
 
+CORS_ALLOW_CREDENTIALS = True
+SECURE_SSL_REDIRECT = True
+
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "authorization",
+    "content-type",
+]
+
+CORS_ALLOW_METHODS = [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+]
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -159,7 +181,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ALLOW_ADMIN_SIGNUP = True
 from pathlib import Path
-
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
