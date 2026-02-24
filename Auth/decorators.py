@@ -9,8 +9,8 @@
 from django.http import JsonResponse
 from django.middleware.csrf import CsrfViewMiddleware
 
-def csrf_required(view_func):
-    def wrapper(request, *args, **kwargs):
+def csrf_required(view_func): #main function of decorator
+    def wrapper(request, *args, **kwargs):# inner function- putting logic / execuion
 
         # Create a dummy get_response function required by middleware
         def dummy_get_response(req):
