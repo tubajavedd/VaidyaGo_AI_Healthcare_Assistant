@@ -1,6 +1,10 @@
-venv/
-__pycache__
-/*.pyc
-.env
-dtsticfiles/
+# Python
+__pycache__/
+*.pyc
 
+# Django
+db.sqlite3
+media/
+
+# Virtual env
+venv/

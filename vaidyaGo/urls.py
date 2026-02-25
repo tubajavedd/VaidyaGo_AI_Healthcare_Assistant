@@ -23,4 +23,10 @@ urlpatterns = [
     path('api/feedback/', include('feedback.urls')),
     path('accounts/', include('accounts.urls')),
     path('api/admin/',include('adminProfile.urls')),
+    path('api/', include('Dr_personalInfo.urls')),
+    path('api/',include('Dr_professionalInfo.urls')),
+    path('api/',include('Dr_hospitalInfo.urls')),
+    path('api/', include('Dr_Documents.urls')),
+
+
 ]
