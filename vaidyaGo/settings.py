@@ -41,8 +41,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_HTTPONLY = False
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'Dr_professionalInfo',
     'Dr_hospitalInfo',
     'Dr_Documents',
+    'DoctorSlot',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -126,7 +127,7 @@ AUTHENTICATION_BACKENDS = [
 
 
 CORS_ALLOW_CREDENTIALS = True
-SECURE_SSL_REDIRECT = True
+SECURE_SSL_REDIRECT = not DEBUG
 
 from corsheaders.defaults import default_headers
 
@@ -144,7 +145,7 @@ CORS_ALLOW_METHODS = [
     "OPTIONS",
 ]
 
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
