@@ -4,7 +4,7 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 
 from .models import DoctorSlot
-from .serializers import DoctorSlotSerializer
+from .serializers import DoctorSlotSerializer    
 
 
 class DoctorSlotListCreateAPI(APIView):
