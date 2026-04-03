@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'Dr_hospitalInfo',
     'Dr_Documents',
     'DoctorSlot',
+    'appointments',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

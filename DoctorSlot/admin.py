@@ -1,5 +1,4 @@
-from django.apps import AppConfig
+from django.contrib import admin
+from .models import TimeSlot
 
-class DoctorSlotConfig(AppConfig):   # ✅ EXACT NAME
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'DoctorSlot'
+admin.site.register(TimeSlot)
