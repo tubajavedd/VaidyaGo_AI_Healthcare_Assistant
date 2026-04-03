@@ -20,3 +20,13 @@ class DoctorSlotSerializer(serializers.ModelSerializer):
             )
 
         return data
+
+
+
+from .models import TimeSlot
+
+class TimeSlotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TimeSlot
+        fields = ['id', 'doctor', 'start_time', 'end_time', 'is_booked']
+        read_only_fields = ['id', 'is_booked']  # ID is auto, booking status is handled elsewhere

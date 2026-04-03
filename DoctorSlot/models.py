@@ -17,3 +17,18 @@ class DoctorSlot(models.Model):
 
     def __str__(self):
         return f"{self.doctor} | {self.from_date} - {self.to_date}"
+#timeslot
+class TimeSlot(models.Model):
+
+    doctor = models.ForeignKey(
+        "Dr_personalInfo.DoctorPersonalInfo",
+        on_delete=models.CASCADE
+    )
+
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+
+    is_booked = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.doctor} | {self.start_time}"

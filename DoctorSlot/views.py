@@ -2,6 +2,15 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from django.shortcuts import get_object_or_404
+# DoctorSlot/views.py
+from django.http import JsonResponse
+from DoctorSlot.utils import generate_slots_for_week
+
+def generate_slots_api(request):
+    if request.method == "POST":
+        generate_slots_for_week()
+        return JsonResponse({"message": "Slots generated successfully"})
+    return JsonResponse({"error": "Invalid method"}, status=400)
 
 from .models import DoctorSlot
 from .serializers import DoctorSlotSerializer    
@@ -55,3 +64,69 @@ class DoctorSlotDetailAPI(APIView):
             {"message": "Doctor slot deleted"},
             status=status.HTTP_204_NO_CONTENT
         )
+
+#see all slots
+from django.http import JsonResponse
+from DoctorSlot.models import TimeSlot
+from Dr_personalInfo.models import DoctorPersonalInfo
+
+def doctor_slots_api(request, doctor_id):
+    if request.method != "GET":
+        return JsonResponse({"error": "Invalid method"}, status=400)
+
+    try:
+        doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+    except DoctorPersonalInfo.DoesNotExist:
+        return JsonResponse({"error": "Doctor not found"}, status=404)
+
+    # check if query param ?booked=true or false
+    booked_param = request.GET.get("booked")
+    if booked_param == "true":
+        slots = TimeSlot.objects.filter(doctor=doctor, is_booked=True)
+    elif booked_param == "false":
+        slots = TimeSlot.objects.filter(doctor=doctor, is_booked=False)
+    else:
+        slots = TimeSlot.objects.filter(doctor=doctor)
+
+    data = [
+        {
+            "id": slot.id,
+            "start_time": slot.start_time,
+            "end_time": slot.end_time,
+            "is_booked": slot.is_booked
+        }
+        for slot in slots
+    ]
+    return JsonResponse({"doctor_id": doctor_id, "slots": data})
+
+
+from DoctorSlot.models import TimeSlot
+from Dr_personalInfo.models import DoctorPersonalInfo
+from .serializers import TimeSlotSerializer
+
+class DoctorBookedSlotsAPI(APIView):
+    """
+    Return only booked slots for a specific doctor
+    """
+    def get(self, request, doctor_id):
+        try:
+            doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+        except DoctorPersonalInfo.DoesNotExist:
+            return Response({"error": "Doctor not found"}, status=404)
+
+        slots = TimeSlot.objects.filter(doctor=doctor, is_booked=True)
+        serializer = TimeSlotSerializer(slots, many=True)
+        return Response({
+            "doctor_id": doctor_id,
+            "booked_slots": serializer.data
+        })
+    
+
+class DoctorAllSlotsAPI(APIView):
+    def get(self, request, doctor_id):
+        slots = TimeSlot.objects.filter(doctor_id=doctor_id)
+        serializer = TimeSlotSerializer(slots, many=True)
+        return Response({
+            "doctor_id": doctor_id,
+            "slots": serializer.data
+        })
