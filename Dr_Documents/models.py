@@ -1,5 +1,7 @@
 from django.db import models
+from django.contrib.auth.models import User
 from Dr_personalInfo.models import DoctorPersonalInfo
+from django.conf import settings
 
 
 DOCUMENT_TYPE_CHOICES = (
@@ -13,6 +15,7 @@ DOCUMENT_TYPE_CHOICES = (
 
 
 class DoctorDocument(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,null=True,blank=True)
 
     doctor = models.ForeignKey(
         DoctorPersonalInfo,
@@ -29,7 +32,19 @@ class DoctorDocument(models.Model):
         upload_to='doctor_documents/'
     )
 
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    ]
+
+    status = models.CharField(
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.document_type} for Doctor {self.doctor.id}"
+        return f"{self.document_type} - {self.user.username}"

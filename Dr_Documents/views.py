@@ -7,6 +7,29 @@ from .models import DoctorDocument
 from .serializers import DoctorDocumentSerializer
 from Dr_personalInfo.models import DoctorPersonalInfo
 
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from Dr_personalInfo.models import DoctorPersonalInfo
+
+@api_view(['POST'])
+def final_submit(request, doctor_id):
+    doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
+
+    # check documents uploaded
+    docs = DoctorDocument.objects.filter(doctor=doctor)
+
+    if not docs.exists():
+        return Response({
+            "error": "Please upload documents first"
+        }, status=400)
+
+    # 🔥 MAIN LOGIC
+    doctor.status = 'submitted'
+    doctor.save()
+
+    return Response({
+        "message": "Profile submitted successfully. Waiting for admin approval."
+    })
 
 class DoctorDocumentCreateView(generics.CreateAPIView):
     serializer_class = DoctorDocumentSerializer

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 from DoctorSlot.utils import generate_slots_for_week
 from django.views.decorators.csrf import csrf_exempt
+<<<<<<< HEAD
 
 @csrf_exempt
 def generate_slots_api(request):
@@ -13,6 +14,22 @@ def generate_slots_api(request):
         generate_slots_for_week()
         return JsonResponse({"message": "Slots generated successfully"})
     return JsonResponse({"error": "Invalid method"}, status=400)
+=======
+
+
+class GenerateSlotsAPI(APIView):
+    def post(self, request):
+        try:
+            generate_slots_for_week()
+            return Response({
+                "message": "Slots generated successfully"
+            })
+        except Exception as e:
+            return Response({
+                "error": str(e)
+            }, status=500)
+
+>>>>>>> a7eaaa53cf22fcdd80bebe80ed66439d762c8607
 
 from .models import DoctorSlot
 from .serializers import DoctorSlotSerializer

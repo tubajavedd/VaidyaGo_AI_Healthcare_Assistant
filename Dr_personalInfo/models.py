@@ -28,6 +28,14 @@ class DoctorPersonalInfo(models.Model):
     #photo = models.ImageField(upload_to='doctor_photos/', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    STATUS_CHOICES = [
+        ('incomplete', 'Incomplete'),
+        ('submitted', 'Submitted'),
+        ('approved', 'Approved'),
+    ]
+
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='incomplete')
 
     def __str__(self):
         return self.first_name
