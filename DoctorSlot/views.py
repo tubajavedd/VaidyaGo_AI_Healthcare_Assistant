@@ -5,7 +5,9 @@ from django.shortcuts import get_object_or_404
 # DoctorSlot/views.py
 from django.http import JsonResponse
 from DoctorSlot.utils import generate_slots_for_week
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt
 def generate_slots_api(request):
     if request.method == "POST":
         generate_slots_for_week()
@@ -13,7 +15,7 @@ def generate_slots_api(request):
     return JsonResponse({"error": "Invalid method"}, status=400)
 
 from .models import DoctorSlot
-from .serializers import DoctorSlotSerializer    
+from .serializers import DoctorSlotSerializer
 
 
 class DoctorSlotListCreateAPI(APIView):
@@ -120,7 +122,7 @@ class DoctorBookedSlotsAPI(APIView):
             "doctor_id": doctor_id,
             "booked_slots": serializer.data
         })
-    
+
 
 class DoctorAllSlotsAPI(APIView):
     def get(self, request, doctor_id):
