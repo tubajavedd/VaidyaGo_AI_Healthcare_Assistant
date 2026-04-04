@@ -44,3 +44,46 @@ class DisconnectGoogle(APIView):
 
         return Response({"message": "Google account disconnected"})
 
+#get submitted doctor(get notification of doctor who submitted)
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAdminUser
+from Dr_personalInfo.models import DoctorPersonalInfo
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def pending_doctors(request):
+    doctors = DoctorPersonalInfo.objects.filter(status='submitted')
+
+    data = []
+    for d in doctors:
+        data.append({
+            "id": d.id,
+            "name": getattr(d, "name", ""),   # adjust field
+            "status": d.status
+        })
+
+    return Response(data)
+
+
+#approve doctor
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def approve_doctor(request, doctor_id):
+    doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+
+    doctor.status = 'approved'
+    doctor.save()
+
+    return Response({"message": "Doctor approved"})
+
+
+#rejected doctor
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def reject_doctor(request, doctor_id):
+    doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+
+    doctor.status = 'incomplete'  # allow re-edit
+    doctor.save()
+
+    return Response({"message": "Doctor rejected"})

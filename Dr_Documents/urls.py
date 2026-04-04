@@ -2,10 +2,15 @@ from django.urls import path
 from .views import (
     DoctorDocumentCreateView,
     DoctorDocumentListView,
-    DoctorDocumentDetailView
+    DoctorDocumentDetailView,
+    final_submit
 )
 
+
+
+
 urlpatterns = [
+    path('submit/<int:doctor_id>/', final_submit),
     path(
         'doctor/<int:doctor_id>/documents/',
         DoctorDocumentCreateView.as_view(),
