@@ -78,12 +78,43 @@ def approve_doctor(request, doctor_id):
 
 
 #rejected doctor
+
+from rest_framework.permissions import AllowAny
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def reject_doctor(request, doctor_id):
     doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
 
-    doctor.status = 'incomplete'  # allow re-edit
+    reason = request.data.get('reason')
+    message = request.data.get('message')
+    file = request.FILES.get('file')
+
+    if not reason:
+        return Response({"error": "Reason is required"}, status=400)
+
+    # update fields
+    doctor.status = 'rejected'
+    doctor.rejection_reason = reason
+    doctor.rejection_message = message
+    doctor.rejection_file = file
     doctor.save()
 
-    return Response({"message": "Doctor rejected"})
+    # Send Email
+    from django.core.mail import send_mail
+
+    send_mail(
+        subject="Application Rejected",
+        message=f"""
+Your application has been rejected.
+
+Reason: {reason}
+
+Message: {message if message else "No additional message"}
+        """,
+        from_email="your_email@gmail.com",
+        recipient_list=[doctor.email],
+        fail_silently=False,
+    )
+
+    return Response({"message": "Doctor rejected and notified"})
+
