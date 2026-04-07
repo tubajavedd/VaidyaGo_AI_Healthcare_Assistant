@@ -1,45 +1,109 @@
-**Edit a file, create a new file, and clone from Bitbucket in under 2 minutes**
+ ##AI Vernacular Healthcare Assistant
 
-When you're done, you can delete the content in this README and update the file with details for others getting started with your repository.
+An AI-powered healthcare assistant designed for Indian users that supports Hindi/Hinglish communication, enabling easy access to healthcare services like symptom checking, doctor booking, prescription analysis, and reminders.
 
-*We recommend that you open this README in another tab as you perform the tasks below. You can [watch our video](https://youtu.be/0ocf7u76WSo) for a full demo of all the steps in this tutorial. Open the video in a new tab to avoid leaving Bitbucket.*
+##Project Overview
 
----
+This project aims to build a full-stack healthcare platform with AI integration that helps users:
 
-## Edit a file
+* Understand symptoms in Hindi
+* Book doctor appointments
+* Upload prescriptions (OCR-based parsing)
+* Get medicine reminders
+* Use voice (Speech-to-Text & Text-to-Speech)
 
-You’ll start by editing this README file to learn how to edit a file in Bitbucket.
+ Goal: Make healthcare accessible, simple, and vernacular-friendly
 
-1. Click **Source** on the left side.
-2. Click the README.md link from the list of files.
-3. Click the **Edit** button.
-4. Delete the following text: *Delete this line to make a change to the README from Bitbucket.*
-5. After making your change, click **Commit** and then **Commit** again in the dialog. The commit page will open and you’ll see the change you just made.
-6. Go back to the **Source** page.
+## MVP Features (Minimum Working Product)
+* OTP-based Login (Mobile)
+* Hindi Symptom Chat (AI-based)
+* Doctor Appointment Booking
+* Prescription Upload + OCR
+* Medicine Reminder System
+* Basic Doctor/Admin Dashboard
+  
+##Tech Stack
+*Frontend:
+React / Next.js
+Tailwind CSS
+*Backend:
+FastAPI / Django REST Framework
+PostgreSQL
+#AI & ML :
+Hugging Face Models
+Whisper (Speech-to-Text)
+Tesseract OCR
+*Mobile:
+React Native / Flutter
+#Cloud & DevOps:
+AWS / GCP / Azure
+Docker
+GitHub Actions (CI/CD)
 
----
+*Core Features Explained:
+Symptom Checker (Hindi AI)
+User inputs symptoms in Hindi
+AI extracts:
+Symptoms
+Duration
+Severity
+Returns:
+Possible conditions (Top 3)
+Suggestions (NOT diagnosis)
 
-## Create a file
+* Prescription OCR
+Upload image of prescription
+Extract:
+Medicine name
+Dosage
+Frequency
+Convert into structured data
 
-Next, you’ll add a new file to this repository.
+* Medicine Reminder
+Auto-create reminders from prescription
+Notifications via:
+App
+SMS / Email
 
-1. Click the **New file** button at the top of the **Source** page.
-2. Give the file a filename of **contributors.txt**.
-3. Enter your name in the empty file space.
-4. Click **Commit** and then **Commit** again in the dialog.
-5. Go back to the **Source** page.
+* Voice Support
+Speak symptoms → convert to text
+AI response → converted to speech
 
-Before you move on, go ahead and explore the repository. You've already seen the **Source** page, but check out the **Commits**, **Branches**, and **Settings** pages.
+##Phase Breakdown
+Week	Focus
+Week 1	Planning, Repo Setup
+Week 2	Backend APIs
+Week 3	Frontend UI
+Week 4	AI Symptom Checker
+Week 5	OCR + Voice
+Week 6	Video Call + Payments
+Week 7	Mobile App
+Week 8	Security + Testing
+Week 9	Deployment + Beta
 
----
 
-## Clone a repository
+AI-Healthcare-Assistant/
+│
+├── backend/
+│   ├── app/
+│   ├── models/
+│   ├── routes/
+│   └── services/
+│
+├── frontend/
+│   ├── pages/
+│   ├── components/
+│   └── utils/
+│
+├── mobile/
+│
+├── ai/
+│   ├── symptom_checker/
+│   ├── ocr/
+│   └── speech/
+│
+├── docs/
+├── tests/
+└── README.md
 
-Use these steps to clone from SourceTree, our client for using the repository command-line free. Cloning allows you to work on your files locally. If you don't yet have SourceTree, [download and install first](https://www.sourcetreeapp.com/). If you prefer to clone from the command line, see [Clone a repository](https://confluence.atlassian.com/x/4whODQ).
 
-1. You’ll see the clone button under the **Source** heading. Click that button.
-2. Now click **Check out in SourceTree**. You may need to create a SourceTree account or log in.
-3. When you see the **Clone New** dialog in SourceTree, update the destination path and name if you’d like to and then click **Clone**.
-4. Open the directory you just created to see your repository’s files.
-
-Now that you're more familiar with your Bitbucket repository, go ahead and add a new file locally. You can [push your change back to Bitbucket with SourceTree](https://confluence.atlassian.com/x/iqyBMg), or you can [add, commit,](https://confluence.atlassian.com/x/8QhODQ) and [push from the command line](https://confluence.atlassian.com/x/NQ0zDQ).
