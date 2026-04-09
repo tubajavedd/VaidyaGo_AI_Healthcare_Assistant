@@ -33,9 +33,11 @@ class DoctorPersonalInfo(models.Model):
         ('incomplete', 'Incomplete'),
         ('submitted', 'Submitted'),
         ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
     ]
 
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='incomplete')
 
-    def __str__(self):
-        return self.first_name
+    rejected_reason = models.CharField(max_length=255,null=True,blank=True)
+    rejected_message = models.TextField(null=True,blank=True)
+    rejected_file = models.FileField(upload_to='rejected/',null=True,blank=True)
