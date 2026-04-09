@@ -63,7 +63,7 @@ class AdminDoctorUpdateView(APIView):
 #---------------doctor crud end--------------
 User = get_user_model()
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -154,3 +154,102 @@ class AdminLoginView(APIView):
             'refresh': str(refresh),
             'message': 'Login successful'
         }, status=status.HTTP_200_OK)
+
+
+
+# =========================
+# GET PENDING DOCTORS
+# =========================
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def pending_doctors(request):
+    # ✅ FIXED (use consistent status)
+    doctors = DoctorPersonalInfo.objects.filter(status='pending')
+
+    data = []
+    for d in doctors:
+        data.append({
+            "id": d.id,
+            "name": f"{d.first_name} {d.last_name}".strip(),
+            "status": d.status
+        })
+
+    return Response(data)
+
+
+# =========================
+# APPROVE DOCTOR
+# =========================
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def approve_doctor(request, doctor_id):
+    doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
+
+    # ✅ Optional safety check
+    if doctor.status == 'approved':
+        return Response({"error": "Doctor already approved"}, status=400)
+
+    doctor.status = 'approved'
+    doctor.rejected_reason = None
+    doctor.rejected_message = None
+    doctor.rejected_file = None
+    doctor.save()
+
+    # ✅ Optional: notify doctor
+    if doctor.user and doctor.user.email:
+        send_mail(
+            subject="Application Approved",
+            message="Your doctor profile has been approved. You can now access the system.",
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[doctor.user.email],
+            fail_silently=True,
+        )
+
+    return Response({"message": "Doctor approved"})
+
+
+# =========================
+# REJECT DOCTOR
+# =========================
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def reject_doctor(request, doctor_id):
+    doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
+
+    reason = request.data.get('reason')
+    message = request.data.get('message')
+    file = request.FILES.get('file')
+
+    if not reason:
+        return Response(
+            {"error": "Reason is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ✅ Optional safety check
+    if doctor.status == 'rejected':
+        return Response({"error": "Doctor already rejected"}, status=400)
+
+    doctor.status = 'rejected'
+    doctor.rejected_reason = reason
+    doctor.rejected_message = message
+    doctor.rejected_file = file
+    doctor.save()
+
+    # ✅ FIXED (use user email)
+    if doctor.user and doctor.user.email:
+        send_mail(
+            subject="Application Rejected",
+            message=f"""
+Your application has been rejected.
+
+Reason: {reason}
+
+Message: {message if message else "No additional message"}
+            """,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[doctor.user.email],
+            fail_silently=False,
+        )
+
+    return Response({"message": "Doctor rejected and notified"})
