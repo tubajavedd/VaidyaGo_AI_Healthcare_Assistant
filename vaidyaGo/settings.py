@@ -60,7 +60,7 @@ INSTALLED_APPS = [
     'Auth',
     'corsheaders',
     'feedback',
-    'accounts',
+    'AdminLogin',
     'adminProfile',
     'rest_framework',
     'rest_framework.authtoken',
@@ -127,7 +127,7 @@ DATABASES = {
 }
 
 AUTHENTICATION_BACKENDS = [
-    'accounts.backends.CustomAuthBackend',
+    'django.contrib.auth.backends.ModelBackend',
     ]
 
 
@@ -219,5 +219,5 @@ SIMPLE_JWT = {
 }
 
 
-AUTH_USER_MODEL = 'accounts.User'
+AUTH_USER_MODEL = 'AdminLogin.User'
 

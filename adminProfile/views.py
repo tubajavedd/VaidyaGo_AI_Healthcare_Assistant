@@ -1,8 +1,12 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from accounts.models import Profile, Address
+from AdminLogin.models import Profile, Address
 from .serializers import ProfileSerializer
+from django.shortcuts import get_object_or_404
+from django.conf import settings
+from django.core.mail import send_mail
 
 
 class AdminProfileView(APIView):
@@ -58,7 +62,7 @@ def pending_doctors(request):
     for d in doctors:
         data.append({
             "id": d.id,
-            "name": getattr(d, "name", ""),   # adjust field
+            "name": f"{d.first_name} {d.last_name}".strip(),
             "status": d.status
         })
 
@@ -69,21 +73,47 @@ def pending_doctors(request):
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def approve_doctor(request, doctor_id):
-    doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+    doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
 
     doctor.status = 'approved'
+    doctor.rejected_reason = None
+    doctor.rejected_message = None
+    doctor.rejected_file = None
     doctor.save()
 
     return Response({"message": "Doctor approved"})
 
 
-#rejected doctor
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def reject_doctor(request, doctor_id):
-    doctor = DoctorPersonalInfo.objects.get(id=doctor_id)
+    doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
 
-    doctor.status = 'incomplete'  # allow re-edit
+    reason = request.data.get('reason')
+    message = request.data.get('message')
+    file = request.FILES.get('file')
+
+    if not reason:
+        return Response({"error": "Reason is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+    doctor.status = 'rejected'
+    doctor.rejected_reason = reason
+    doctor.rejected_message = message
+    doctor.rejected_file = file
     doctor.save()
 
-    return Response({"message": "Doctor rejected"})
+    send_mail(
+        subject="Application Rejected",
+        message=f"""
+Your application has been rejected.
+
+Reason: {reason}
+
+Message: {message if message else "No additional message"}
+        """,
+        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+        recipient_list=[doctor.email],
+        fail_silently=False,
+    )
+
+    return Response({"message": "Doctor rejected and notified"})
