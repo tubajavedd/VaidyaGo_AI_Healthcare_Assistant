@@ -1,20 +1,26 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from AdminLogin.models import Profile, Address
 from .serializers import ProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.core.mail import send_mail
+from rest_framework.decorators import api_view, permission_classes
+from Dr_personalInfo.models import DoctorPersonalInfo
 
 
+# =========================
+# ADMIN PROFILE
+# =========================
 class AdminProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         profile, _ = Profile.objects.get_or_create(user=request.user)
         address, _ = Address.objects.get_or_create(user=request.user)
+
         serializer = ProfileSerializer(profile)
         return Response(serializer.data)
 
@@ -37,26 +43,30 @@ class AdminProfileView(APIView):
         return Response({"message": "Profile updated successfully"}, status=200)
 
 
+# =========================
+# DISCONNECT GOOGLE
+# =========================
 class DisconnectGoogle(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        profile = Profile.objects.get(user=request.user)
+        profile, _ = Profile.objects.get_or_create(user=request.user)  # ✅ FIXED
+
         profile.google_connected = False
         profile.google_email = None
         profile.save()
 
         return Response({"message": "Google account disconnected"})
 
-#get submitted doctor(get notification of doctor who submitted)
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAdminUser
-from Dr_personalInfo.models import DoctorPersonalInfo
 
+# =========================
+# GET PENDING DOCTORS
+# =========================
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def pending_doctors(request):
-    doctors = DoctorPersonalInfo.objects.filter(status='submitted')
+    # ✅ FIXED (use consistent status)
+    doctors = DoctorPersonalInfo.objects.filter(status='pending')
 
     data = []
     for d in doctors:
@@ -69,11 +79,17 @@ def pending_doctors(request):
     return Response(data)
 
 
-#approve doctor
+# =========================
+# APPROVE DOCTOR
+# =========================
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def approve_doctor(request, doctor_id):
     doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
+
+    # ✅ Optional safety check
+    if doctor.status == 'approved':
+        return Response({"error": "Doctor already approved"}, status=400)
 
     doctor.status = 'approved'
     doctor.rejected_reason = None
@@ -81,9 +97,22 @@ def approve_doctor(request, doctor_id):
     doctor.rejected_file = None
     doctor.save()
 
+    # ✅ Optional: notify doctor
+    if doctor.user and doctor.user.email:
+        send_mail(
+            subject="Application Approved",
+            message="Your doctor profile has been approved. You can now access the system.",
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[doctor.user.email],
+            fail_silently=True,
+        )
+
     return Response({"message": "Doctor approved"})
 
 
+# =========================
+# REJECT DOCTOR
+# =========================
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def reject_doctor(request, doctor_id):
@@ -94,7 +123,14 @@ def reject_doctor(request, doctor_id):
     file = request.FILES.get('file')
 
     if not reason:
-        return Response({"error": "Reason is required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Reason is required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    # ✅ Optional safety check
+    if doctor.status == 'rejected':
+        return Response({"error": "Doctor already rejected"}, status=400)
 
     doctor.status = 'rejected'
     doctor.rejected_reason = reason
@@ -102,18 +138,20 @@ def reject_doctor(request, doctor_id):
     doctor.rejected_file = file
     doctor.save()
 
-    send_mail(
-        subject="Application Rejected",
-        message=f"""
+    # ✅ FIXED (use user email)
+    if doctor.user and doctor.user.email:
+        send_mail(
+            subject="Application Rejected",
+            message=f"""
 Your application has been rejected.
 
 Reason: {reason}
 
 Message: {message if message else "No additional message"}
-        """,
-        from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-        recipient_list=[doctor.email],
-        fail_silently=False,
-    )
+            """,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[doctor.user.email],
+            fail_silently=False,
+        )
 
     return Response({"message": "Doctor rejected and notified"})

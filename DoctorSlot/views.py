@@ -8,6 +8,15 @@ from DoctorSlot.utils import generate_slots_for_week
 from django.views.decorators.csrf import csrf_exempt
 
 
+@csrf_exempt
+def generate_slots_api(request):
+    if request.method == "POST":
+        generate_slots_for_week()
+        return JsonResponse({"message": "Slots generated successfully"})
+    return JsonResponse({"error": "Invalid method"}, status=400)
+
+
+
 class GenerateSlotsAPI(APIView):
     def post(self, request):
         try:
@@ -21,8 +30,9 @@ class GenerateSlotsAPI(APIView):
             }, status=500)
 
 
+
 from .models import DoctorSlot
-from .serializers import DoctorSlotSerializer    
+from .serializers import DoctorSlotSerializer
 
 
 class DoctorSlotListCreateAPI(APIView):
@@ -75,7 +85,7 @@ class DoctorSlotDetailAPI(APIView):
         )
 
 #see all slots
-from django.http import JsonResponse
+
 from DoctorSlot.models import TimeSlot
 from Dr_personalInfo.models import DoctorPersonalInfo
 
@@ -109,8 +119,8 @@ def doctor_slots_api(request, doctor_id):
     return JsonResponse({"doctor_id": doctor_id, "slots": data})
 
 
-from DoctorSlot.models import TimeSlot
-from Dr_personalInfo.models import DoctorPersonalInfo
+
+
 from .serializers import TimeSlotSerializer
 
 class DoctorBookedSlotsAPI(APIView):
@@ -129,7 +139,7 @@ class DoctorBookedSlotsAPI(APIView):
             "doctor_id": doctor_id,
             "booked_slots": serializer.data
         })
-    
+
 
 class DoctorAllSlotsAPI(APIView):
     def get(self, request, doctor_id):
