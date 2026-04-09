@@ -28,7 +28,14 @@ class DoctorPersonalInfo(models.Model):
     #photo = models.ImageField(upload_to='doctor_photos/', blank=True, null=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    REJECTION_CHOICES = [
+    ('invalid_docs', 'Invalid Documents'),
+    ('missing_info', 'Missing Information'),
+    ('license_issue', 'License Issue'),
+    ('other', 'Other'),
+]
+
+
     STATUS_CHOICES = [
         ('incomplete', 'Incomplete'),
         ('submitted', 'Submitted'),
@@ -38,6 +45,12 @@ class DoctorPersonalInfo(models.Model):
 
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='incomplete')
 
+
     rejected_reason = models.CharField(max_length=255,null=True,blank=True)
     rejected_message = models.TextField(null=True,blank=True)
     rejected_file = models.FileField(upload_to='rejected/',null=True,blank=True)
+
+    rejected_reason = models.CharField(max_length=255 ,choices=REJECTION_CHOICES, null = True,blank=True)
+    rejected_message = models.TextField(null=True,blank=True)
+    rejeted_file = models.FileField(upload_to='rejected/',null=True,blank=True)
+
