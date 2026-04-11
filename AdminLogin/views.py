@@ -11,7 +11,10 @@ from Dr_personalInfo.models import DoctorPersonalInfo
 from django.core.mail import send_mail
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import  IsAdminUser
+<<<<<<< HEAD
 
+=======
+>>>>>>> 0430290e280f82c69137655a897b42e4079297d1
 #********************doctor CRUD*****************
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -22,6 +25,11 @@ from .models import Doctor
 from .serializers import DoctorSerializer
 from .permissions import IsAdmin
 
+
+from django.utils import timezone
+
+from .models import OTP
+from .utils import generate_otp
 
 class AdminDoctorListCreateView(APIView):
     permission_classes = [IsAdmin]
@@ -155,6 +163,91 @@ class AdminLoginView(APIView):
             'message': 'Login successful'
         }, status=status.HTTP_200_OK)
 
+#send otp
+
+@api_view(['POST'])
+def send_otp(request):
+    email = request.data.get('email')
+
+    otp = generate_otp()
+
+    if email:
+        OTP.objects.create(email=email, otp=otp)
+
+        send_mail(
+            'VaidyaGo',
+            f'Your OTP is {otp}',
+            'javedtuba1@gmail.com',
+            [email],
+            fail_silently=False,
+        )
+        return Response({"message": "OTP sent to email"})
+
+
+
+    return Response({"error": "Provide email "})
+
+
+#verify otp
+@api_view(['POST'])
+def verify_otp(request):
+    otp = request.data.get('otp')
+
+    otp_obj = OTP.objects.filter(
+        otp=otp
+    ).last()
+
+    if not otp_obj:
+        return Response({"error": "Invalid OTP"})
+
+    if timezone.now() - otp_obj.created_at > timedelta(minutes=5):
+        return Response({"error": "OTP expired"})
+
+    otp_obj.is_verified = True
+    otp_obj.save()
+    
+    return Response({"message": "OTP verified"})
+
+#reset password
+# =========================
+# RESET PASSWORD (NO EMAIL REQUIRED)
+# =========================
+@api_view(['POST'])
+def reset_password(request):
+    # ✅ Normalize email ONCE
+    email = request.data.get('email')
+    password = request.data.get('password')
+    confirm_password = request.data.get('confirm_password')
+
+    if not email or not password or not confirm_password:
+        return Response({"error": "All fields are required"})
+
+    # ✅ Clean email
+    email = email.strip().lower()
+
+    if password != confirm_password:
+        return Response({"error": "Passwords do not match"})
+
+    # ✅ Use cleaned email everywhere
+    otp_obj = OTP.objects.filter(email__iexact=email, is_verified=True).last()
+
+    if not otp_obj:
+        return Response({"error": "OTP not verified for this email"})
+
+    if timezone.now() - otp_obj.created_at > timedelta(minutes=5):
+        return Response({"error": "OTP expired"})
+
+    user = User.objects.filter(email__iexact=email).first()
+
+    if not user:
+        return Response({"error": "User not found"})
+
+    user.set_password(password)
+    user.save()
+
+    OTP.objects.filter(email__iexact=email).delete()
+
+    return Response({"message": "Password updated successfully"})
 
 
 # =========================
@@ -190,7 +283,7 @@ def pending_doctors(request):
 def approve_doctor(request, doctor_id):
     doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
 
-    # ✅ Optional safety check
+    #  Optional safety check
     if doctor.status == 'approved':
         return Response({"error": "Doctor already approved"}, status=400)
 
@@ -200,7 +293,7 @@ def approve_doctor(request, doctor_id):
     doctor.rejected_file = None
     doctor.save()
 
-    # ✅ Optional: notify doctor
+    #  Optional: notify doctor
     if doctor.user and doctor.user.email:
         send_mail(
             subject="Application Approved",
@@ -231,7 +324,7 @@ def reject_doctor(request, doctor_id):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-    # ✅ Optional safety check
+    #  Optional safety check
     if doctor.status == 'rejected':
         return Response({"error": "Doctor already rejected"}, status=400)
 
@@ -241,7 +334,7 @@ def reject_doctor(request, doctor_id):
     doctor.rejected_file = file
     doctor.save()
 
-    # ✅ FIXED (use user email)
+    # FIXED (use user email)
     if doctor.user and doctor.user.email:
         send_mail(
             subject="Application Rejected",
