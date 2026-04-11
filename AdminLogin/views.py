@@ -1,6 +1,5 @@
 import jwt
 import json
-from datetime import datetime, timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
@@ -8,7 +7,10 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from .utils import generate_username_from_email
-
+from Dr_personalInfo.models import DoctorPersonalInfo
+from django.core.mail import send_mail
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import  IsAdminUser
 
 #********************doctor CRUD*****************
 from rest_framework.views import APIView
@@ -62,9 +64,9 @@ class AdminDoctorUpdateView(APIView):
 
 #---------------doctor crud end--------------
 User = get_user_model()
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny, IsAdminUser
 
+
+from rest_framework.permissions import AllowAny
 @api_view(['POST'])
 @permission_classes([AllowAny])
 
@@ -135,8 +137,6 @@ def admin_signup_page(request):
 #********LOGIN*************
 
 from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
 from .serializers import AdminLoginSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -163,7 +163,11 @@ class AdminLoginView(APIView):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def pending_doctors(request):
-    # ✅ FIXED (use consistent status)
+
+    # Step 1: update incomplete → pending
+    DoctorPersonalInfo.objects.filter(status='incomplete').update(status='pending')
+
+    # Step 2: fetch pending doctors
     doctors = DoctorPersonalInfo.objects.filter(status='pending')
 
     data = []
@@ -175,6 +179,7 @@ def pending_doctors(request):
         })
 
     return Response(data)
+
 
 
 # =========================

@@ -9,7 +9,6 @@ from Dr_personalInfo.models import DoctorPersonalInfo
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from Dr_personalInfo.models import DoctorPersonalInfo
 
 @api_view(['POST'])
 def final_submit(request, doctor_id):
@@ -23,8 +22,8 @@ def final_submit(request, doctor_id):
             "error": "Please upload documents first"
         }, status=400)
 
-    # 🔥 MAIN LOGIC
-    doctor.status = 'submitted'
+    # MAIN LOGIC
+    doctor.status = 'pending'
     doctor.save()
 
     return Response({

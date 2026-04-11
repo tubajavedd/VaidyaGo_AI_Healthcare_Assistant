@@ -227,10 +227,4 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "javedtuba1@gmail.com"
 EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
-<<<<<<< HEAD
 
-
-
-
-=======
->>>>>>> c3d062b9d3a1ce895bb2465cc67ced157363c6f0
