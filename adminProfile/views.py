@@ -6,9 +6,8 @@ from AdminLogin.models import Profile, Address
 from .serializers import ProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.conf import settings
-from django.core.mail import send_mail
-from rest_framework.decorators import api_view, permission_classes
-from Dr_personalInfo.models import DoctorPersonalInfo
+
+
 
 
 # =========================

@@ -37,8 +37,6 @@ class Doctor(models.Model):
         return self.name
 
 #user class 
-
-
 class User(AbstractUser):
     ROLE_CHOICES = (
         ('ADMIN', 'ADMIN'),
@@ -47,6 +45,7 @@ class User(AbstractUser):
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone = models.CharField(max_length=15, unique=True, null=True, blank=True)
+    email = models.EmailField(unique=True,null=True,blank=True)
 
     # Fix clashes with default auth.User
     groups = models.ManyToManyField(
@@ -80,3 +79,11 @@ class UserProfile(models.Model):
     def __str__(self):
         return f"{self.user.username} Profile"
 
+
+#otp logic
+
+class OTP(models.Model):
+    email = models.EmailField(null=True, blank=True)
+    otp = models.CharField(max_length=6)
+    is_verified = models.BooleanField(default=False)  # 👈 ADD THIS
+    created_at = models.DateTimeField(auto_now_add=True)

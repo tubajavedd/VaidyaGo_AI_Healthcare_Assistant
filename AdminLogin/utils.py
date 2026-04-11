@@ -25,3 +25,11 @@ def generate_username_from_email(email):
         counter += 1
 
     return username
+
+
+
+#otp logic 
+import random
+
+def generate_otp():
+    return str(random.randint(100000, 999999))

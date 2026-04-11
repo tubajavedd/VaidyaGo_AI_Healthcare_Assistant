@@ -38,7 +38,7 @@ class DoctorPersonalInfo(models.Model):
 
     STATUS_CHOICES = [
         ('incomplete', 'Incomplete'),
-        ('submitted', 'Submitted'),
+        ('pending', 'Pending'),
         ('approved', 'Approved'),
         ('rejected', 'Rejected'),
     ]

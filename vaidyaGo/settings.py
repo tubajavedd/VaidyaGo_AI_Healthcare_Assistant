@@ -226,4 +226,5 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "javedtuba1@gmail.com"
-EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
+EMAIL_HOST_PASSWORD = "tqnv dkxy txyn wkci"
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER

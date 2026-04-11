@@ -24,7 +24,7 @@ def final_submit(request, doctor_id):
         }, status=400)
 
     # 🔥 MAIN LOGIC
-    doctor.status = 'submitted'
+    doctor.status = 'pending'
     doctor.save()
 
     return Response({
