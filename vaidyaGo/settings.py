@@ -228,27 +228,16 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "javedtuba1@gmail.com"
+<<<<<<< HEAD
 EMAIL_HOST_PASSWORD = "tqnv dkxy txyn wkci"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
+<<<<<<< HEAD
 
 
-# reminder
-
-CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
 
 
-CELERY_BEAT_SCHEDULE = {
-    'check-reminder-every-minute': {
-        'task': 'reminder.tasks.check_reminders',  
-        'schedule': 60.0,
-    },
-}
-
-RAZORPAY_KEY = "rzp_test_SgyrDeHjvg4nkG"
-RAZORPAY_SECRET = "uWxDGc9S8BII3RrGd8dYOmgJ"
-RAZORPAY_WEBHOOK_SECRET = "vaidyago_webhook_secure_456"
-
+=======
+>>>>>>> c3d062b9d3a1ce895bb2465cc67ced157363c6f0
+>>>>>>> a25d8b693c675a10e7303647b0807f18e5ed941d
