@@ -228,16 +228,8 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "javedtuba1@gmail.com"
-<<<<<<< HEAD
 EMAIL_HOST_PASSWORD = "tqnv dkxy txyn wkci"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
-<<<<<<< HEAD
 
-
-
-
-=======
->>>>>>> c3d062b9d3a1ce895bb2465cc67ced157363c6f0
->>>>>>> a25d8b693c675a10e7303647b0807f18e5ed941d
