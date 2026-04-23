@@ -231,12 +231,15 @@ EMAIL_HOST_USER = "javedtuba1@gmail.com"
 EMAIL_HOST_PASSWORD = "tqnv dkxy txyn wkci"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
+EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
+
 
 # reminder
 
 CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
+
 
 CELERY_BEAT_SCHEDULE = {
     'check-reminder-every-minute': {
@@ -248,3 +251,4 @@ CELERY_BEAT_SCHEDULE = {
 RAZORPAY_KEY = "rzp_test_SgyrDeHjvg4nkG"
 RAZORPAY_SECRET = "uWxDGc9S8BII3RrGd8dYOmgJ"
 RAZORPAY_WEBHOOK_SECRET = "vaidyago_webhook_secure_456"
+
