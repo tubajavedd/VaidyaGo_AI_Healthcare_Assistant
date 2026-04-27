@@ -22,11 +22,7 @@ def final_submit(request, doctor_id):
             "error": "Please upload documents first"
         }, status=400)
 
-<<<<<<< HEAD
     # MAIN LOGIC
-=======
-    # 🔥 MAIN LOGIC
->>>>>>> 0430290e280f82c69137655a897b42e4079297d1
     doctor.status = 'pending'
     doctor.save()
 
