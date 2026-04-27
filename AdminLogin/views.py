@@ -11,10 +11,7 @@ from Dr_personalInfo.models import DoctorPersonalInfo
 from django.core.mail import send_mail
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import  IsAdminUser
-<<<<<<< HEAD
 
-=======
->>>>>>> 0430290e280f82c69137655a897b42e4079297d1
 #********************doctor CRUD*****************
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -25,7 +22,7 @@ from .models import Doctor
 from .serializers import DoctorSerializer
 from .permissions import IsAdmin
 
-
+from datetime import timedelta
 from django.utils import timezone
 
 from .models import OTP

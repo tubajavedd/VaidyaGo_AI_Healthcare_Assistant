@@ -233,3 +233,11 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
 
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+RAZORPAY_KEY = os.getenv("RAZORPAY_KEY")
+RAZORPAY_SECRET = os.getenv("RAZORPAY_SECRET")
