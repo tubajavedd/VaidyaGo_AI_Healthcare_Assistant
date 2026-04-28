@@ -28,6 +28,10 @@ from django.utils import timezone
 from .models import OTP
 from .utils import generate_otp
 
+import phonenumbers
+from phonenumbers import NumberParseException
+
+
 class AdminDoctorListCreateView(APIView):
     permission_classes = [IsAdmin]
 
@@ -88,10 +92,16 @@ def admin_signup(request):
         return JsonResponse({"error": "Admin signup is disabled"}, status=403)
 
     data = json.loads(request.body)  #SIGNUP CREDENTIAL
+    usertype = data.get('usertype')
     email = data.get("email")
     phone = data.get("phone")
     password = data.get("password")
     confirm_password = data.get("confirm_password")
+    
+
+# optional validation
+    if usertype not in ['patient', 'admin', 'doctor']:
+       return JsonResponse({"error": "Invalid usertype"}, status=400)
 
     # ---------------- Validation ----------------
     if not all([ email, phone, password, confirm_password]):
@@ -103,14 +113,46 @@ def admin_signup(request):
     if User.objects.filter(email=email).exists():
         return JsonResponse({"error": "Email already exists"}, status=400)
 
-    if User.objects.filter(phone=phone).exists():
-        return JsonResponse({"error": "Phone already exists"}, status=400)
+    
+    try:
+        parsed_number = phonenumbers.parse(phone, None)  
+    # None = auto detect country from + code
+
+        if not phonenumbers.is_valid_number(parsed_number):
+           return JsonResponse({"error": "Invalid phone number"}, status=400)
+
+    # format to international standard
+        phone = phonenumbers.format_number(
+           parsed_number,
+           phonenumbers.PhoneNumberFormat.E164
+        )
+
+    except NumberParseException:
+       return JsonResponse({"error": "Invalid phone format"}, status=400)
 
     # ---------------- Create Admin (jb signup hoga tb ye sari info user/admin ki save hogi)----------------
+    
+        # decide role + permissions based on usertype
+    if usertype == "admin":
+      role = "ADMIN"
+      is_staff = True
+      is_superuser = True
+  
+    elif usertype == "doctor":
+       role = "DOCTOR"
+       is_staff = False
+       is_superuser = False
+
+    else:  # patient
+      role = "PATIENT"
+      is_staff = False
+      is_superuser = False
+
+
     username = generate_username_from_email(email)
     user = User.objects.create(
         username=username,
-        role="ADMIN",
+        role=role,
         email=email,
         phone=phone,
         is_staff=True,
@@ -126,8 +168,14 @@ def admin_signup(request):
         "phone":user.phone,
     }
     token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+    if usertype=='admin':
+        message="admin signup successfuly"
+    elif usertype=='doctor':
+        message="dcotor signup successfully"
+    else:
+        message="patient signup successfully"
     return JsonResponse({
-        "message": "Admin created successfully",
+        "message": message,
          "username": user.username,
         "token": token
     }, status=201)
@@ -154,9 +202,13 @@ class AdminLoginView(APIView):
         user = serializer.validated_data['user']
 
         refresh = RefreshToken.for_user(user)
+        refresh['role']=user.role
+        refresh['username']=user.username
         return Response({
             'access': str(refresh.access_token),
             'refresh': str(refresh),
+            'role':user.role,
+            'username':user.username,
             'message': 'Login successful'
         }, status=status.HTTP_200_OK)
 

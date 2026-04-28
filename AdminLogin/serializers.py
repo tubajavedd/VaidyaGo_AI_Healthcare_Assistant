@@ -24,7 +24,13 @@ class AdminSignupSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = [ 'email', 'phone', 'password']
+        fields = [ 'usertype','email', 'phone', 'password']
+    
+
+    def validate_usertype(self, value):
+        if value not in ['patient', 'admin', 'doctor']:
+           raise serializers.ValidationError("Invalid usertype")
+        return value
 
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -38,10 +44,17 @@ class AdminSignupSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password')
+        usertype = validated_data.get('usertype')
 
         user = User(**validated_data)
-        user.role = 'ADMIN'
-        user.is_staff = True
+        if usertype=='admin':
+           user.role='ADMIN'
+           user.is_staff=True
+        elif usertype=='doctor':
+            user.role='DOCTOR'
+        else:
+            user.role='PATIENT'
+    
         user.set_password(password)  # 🔐 HASH
         user.save()
         return user
@@ -76,10 +89,10 @@ class AdminLoginSerializer(serializers.Serializer):
 
         if not user or not user.check_password(password):
             raise serializers.ValidationError("Invalid credentials")
+
         if not user.is_active:
             raise serializers.ValidationError("User account is inactive")
-        if user.role != 'ADMIN':
-            raise serializers.ValidationError("User is not an admin")
-        
+
         data['user'] = user
         return data
+
