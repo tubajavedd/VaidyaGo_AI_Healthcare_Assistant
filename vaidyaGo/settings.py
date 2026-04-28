@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     'appointments',
     'reminder',
     'payment',
+    'Notifications',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -241,3 +242,21 @@ load_dotenv()
 
 RAZORPAY_KEY = os.getenv("RAZORPAY_KEY")
 RAZORPAY_SECRET = os.getenv("RAZORPAY_SECRET")
+
+
+#notifications
+# Firebase
+FIREBASE_CREDENTIALS = "path/to/firebase.json"
+
+# Email (SendGrid example)
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = "smtp.sendgrid.net"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = "apikey"
+EMAIL_HOST_PASSWORD = "your_sendgrid_api_key"
+EMAIL_USE_TLS = True
+
+# Twilio
+TWILIO_ACCOUNT_SID = "your_sid"
+TWILIO_AUTH_TOKEN = "your_token"
+TWILIO_PHONE_NUMBER = "+1234567890"
