@@ -3,9 +3,16 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.db import models
 from django.conf import settings
 
+
+USER_TYPE_CHOICES = (
+    ('patient', 'Patient'),
+    ('admin', 'Admin'),
+    ('doctor', 'Doctor'),
+)
+
+usertype = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='patient')
+
 #------------ADDRESS
-
-
 class Address(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     country = models.CharField(max_length=100)
