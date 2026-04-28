@@ -198,11 +198,13 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ALLOW_ADMIN_SIGNUP = True
-from pathlib import Path
+
+
 CORS_ALLOW_ALL_ORIGINS = True
 
-
+from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
+FIREBASE_CREDENTIALS = BASE_DIR / "firebase/firebase-adminsdk.json"
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -246,17 +248,24 @@ RAZORPAY_SECRET = os.getenv("RAZORPAY_SECRET")
 
 #notifications
 # Firebase
-FIREBASE_CREDENTIALS = "path/to/firebase.json"
+import os
 
-# Email (SendGrid example)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+FIREBASE_CREDENTIALS = os.path.join(
+    BASE_DIR,
+    "firebase",
+    "vaidyago-firebase-adminsdk-fbsvc-d606664e94.json"
+)
+
+
+
+# Email (SendGrid)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.sendgrid.net"
 EMAIL_PORT = 587
 EMAIL_HOST_USER = "apikey"
-EMAIL_HOST_PASSWORD = "your_sendgrid_api_key"
+EMAIL_HOST_PASSWORD = "06263ff2-27a8-4392-b9e5-4961e06e119e"
 EMAIL_USE_TLS = True
 
-# Twilio
-TWILIO_ACCOUNT_SID = "your_sid"
-TWILIO_AUTH_TOKEN = "your_token"
-TWILIO_PHONE_NUMBER = "+1234567890"
+
