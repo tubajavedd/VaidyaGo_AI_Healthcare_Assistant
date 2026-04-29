@@ -32,6 +32,7 @@ urlpatterns = [
     path('reminder/', include('reminder.urls')),
     path('payment/',include('payment.urls')),
     path('notifications/', include('Notifications.urls')),
+    path('today-schedule/', include('TodaySchedule_medication.urls')),
 
 
 ]

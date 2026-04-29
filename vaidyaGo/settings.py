@@ -73,6 +73,7 @@ INSTALLED_APPS = [
     'reminder',
     'payment',
     'Notifications',
+    'TodaySchedule_medication',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
