@@ -1,13 +1,12 @@
 from django.core.mail import send_mail
-from django.template.loader import render_to_string
+from django.conf import settings
 
-def send_email(subject, to_email, context):
-    html_content = render_to_string("email/appointment.html", context)
 
+def send_email(subject, message, recipient_list):
     send_mail(
-        subject,
-        "",
-        "noreply@vaidyago.com",
-        [to_email],
-        html_message=html_content
+        subject=subject,
+        message=message,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=recipient_list,
+        fail_silently=False,
     )
