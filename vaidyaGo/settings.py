@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     'payment',
     'Notifications',
     'TodaySchedule_medication',
+    'newRequest_activePrescription_medication',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
