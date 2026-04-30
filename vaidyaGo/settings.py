@@ -234,10 +234,9 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "javedtuba1@gmail.com"
-EMAIL_HOST_PASSWORD = "tqnv dkxy txyn wkci"
+EMAIL_HOST_PASSWORD = "rrvc cbcq kwpp myvf"
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
-EMAIL_HOST_PASSWORD = "Tub@javed0825julyy"
 
 
 import os
@@ -264,11 +263,11 @@ FIREBASE_CREDENTIALS = os.path.join(
 
 
 # Email (SendGrid)
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.sendgrid.net"
-EMAIL_PORT = 587
-EMAIL_HOST_USER = "apikey"
-EMAIL_HOST_PASSWORD = "06263ff2-27a8-4392-b9e5-4961e06e119e"
-EMAIL_USE_TLS = True
-
+# EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+# EMAIL_HOST = "smtp.sendgrid.net"
+# EMAIL_PORT = 587
+# EMAIL_HOST_USER = "apikey"
+# EMAIL_HOST_PASSWORD = "06263ff2-27a8-4392-b9e5-4961e06e119e"
+# EMAIL_USE_TLS = True
+# DEFAULT_FROM_EMAIL = "javedtuba1@gmail.com"
 
