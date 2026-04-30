@@ -7,25 +7,21 @@ from .views import send_otp, verify_otp, reset_password
 
 
 urlpatterns = [
-    # API endpoint for admin signup (POST request)
-    path("api/admin/signup/", admin_signup, name="admin-signup-api"),
+    # signup/login for all users
+    path("api/signup/", admin_signup, name="signup-api"),
+    path('api/login/', AdminLoginView.as_view(), name='login'),#login for all users (admin, doctor, patient) with role-based access control
+    
+    #admin doctor crud operation(admin manages doctor records mannually)
+    path('api/admin/doctors/', AdminDoctorListCreateView.as_view()),#admin add dcotors mannually and also get list of doctors
+    path('api/admin/doctors/<int:id>/', AdminDoctorUpdateView.as_view()),#admin update doctor details and also delete doctor records
 
-    # HTML page for admin signup form
-    path("admin/signup/", admin_signup_page, name="admin-signup-page"),
-
-    #login endpoint
-    path('api/admin/login/', AdminLoginView.as_view(), name='admin-login'),
-
-     path('api/admin/doctors/', AdminDoctorListCreateView.as_view()),
-    path('api/admin/doctors/<int:id>/', AdminDoctorUpdateView.as_view()),
-
-
+    #dcotor approval process
     path('doctors/pending/', pending_doctors),
     path('doctors/approve/<int:doctor_id>/', approve_doctor),
     path('doctors/reject/<int:doctor_id>/', reject_doctor),
 
 
-    #otp
+    #otp +password reset
     path('send-otp/', send_otp),
     path('verify-otp/', verify_otp),
     path('reset-password/', reset_password),
