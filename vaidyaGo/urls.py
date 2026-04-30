@@ -33,6 +33,7 @@ urlpatterns = [
     path('payment/',include('payment.urls')),
     path('notifications/', include('Notifications.urls')),
     path('today-schedule/', include('TodaySchedule_medication.urls')),
+    path('api/prescriptions/', include('newRequest_activePrescription_medication.urls')),
 
 
 ]

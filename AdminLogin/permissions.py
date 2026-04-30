@@ -13,3 +13,24 @@ class IsAdmin(BasePermission):
             and user.is_authenticated
             and getattr(user, "role", None) == "ADMIN"
         )
+
+
+class IsDoctor(BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and getattr(user, "role", None) == "DOCTOR"
+        )
+
+
+
+class IsPatient(BasePermission):
+    def has_permission(self, request, view):
+        user = request.user
+        return bool(
+            user
+            and user.is_authenticated
+            and getattr(user, "role", None) == "PATIENT"
+        )
