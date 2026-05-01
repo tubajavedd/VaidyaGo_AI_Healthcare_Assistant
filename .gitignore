@@ -59,6 +59,9 @@ Thumbs.db
 *.wmv
 
 
+# cache
+hf_cache/
+hf_cache/**
 
 
 
