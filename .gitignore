@@ -66,3 +66,5 @@ hf_cache/**
 
 
 firebase/
+.env
+.env.example
