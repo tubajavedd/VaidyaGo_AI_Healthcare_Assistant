@@ -77,6 +77,7 @@ INSTALLED_APPS = [
     'newRequest_activePrescription_medication',
     'AddPastMedication',
     'chatbot',
+    'updateLog_medication',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

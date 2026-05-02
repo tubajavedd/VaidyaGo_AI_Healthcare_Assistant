@@ -2,3 +2,17 @@ asgiref==3.11.0
 Django==6.0
 sqlparse==0.5.4
 tzdata==2025.2
+djangorestframework>=3.14.0
+requests>=2.31.0
+
+# LLM Support - Optional, pick one or more:
+# For local TinyLlama model (recommended, no API key needed):
+torch>=2.0.0
+transformers>=4.30.0
+
+# For OpenAI API support (optional):
+openai>=1.0.0
+
+# For better performance:
+python-dotenv>=1.0.0
+
