@@ -1,3 +1,4 @@
+
 # Python
 __pycache__/
 *.pyc
@@ -68,3 +69,12 @@ hf_cache/**
 firebase/
 .env
 .env.example
+
+
+# cache
+hf_cache/
+hf_cache/**
+
+
+
+firebase/

@@ -35,8 +35,12 @@ urlpatterns = [
     path('today-schedule/', include('TodaySchedule_medication.urls')),
     path('api/prescriptions/', include('newRequest_activePrescription_medication.urls')),
     path('api/', include('AddPastMedication.urls')),
+<<<<<<< HEAD
     path("api/vado/", include("chatbot.urls")),
     path("update/",include('updateLog_medication.urls')),
+=======
+    path("api/vado/", include("chatbot.urls"))
+>>>>>>> 53e8d66e4be476e111c5aaf60c4a70bb6e1a1cff
 
 
 
