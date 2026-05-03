@@ -79,6 +79,7 @@ INSTALLED_APPS = [
     'chatbot',
     'updateLog_medication',
     'account_setting',
+    'editProfile',
 
 ]
 MIDDLEWARE = [
