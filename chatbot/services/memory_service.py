@@ -1,15 +1,8 @@
-<<<<<<< HEAD
 from chatbot.models import ChatMessage
-=======
-import re
-from chatbot.models import UserMemory
-
->>>>>>> 53e8d66e4be476e111c5aaf60c4a70bb6e1a1cff
 
 class MemoryService:
 
     @staticmethod
-<<<<<<< HEAD
     def save(user, message, response):
         ChatMessage.objects.create(
             user=user,
@@ -20,43 +13,3 @@ class MemoryService:
     @staticmethod
     def get_history(user, limit=5):
         return ChatMessage.objects.filter(user=user).order_by('-id')[:limit]
-=======
-    def extract_and_store(user, message):
-        message_lower = message.lower()
-
-        patterns = {
-            "name": [
-                r"my name is (.+)",
-                r"mera naam (.+) hai"
-            ],
-            "age": [
-                r"i am (\d+) years old",
-                r"meri age (\d+)"
-            ],
-            "city": [
-                r"i live in (.+)",
-                r"mai (.+) me rehta"
-            ]
-        }
-
-        for key, regex_list in patterns.items():
-            for regex in regex_list:
-                match = re.search(regex, message_lower)
-                if match:
-                    value = match.group(1).strip()
-
-                    UserMemory.objects.update_or_create(
-                        user=user,
-                        key=key,
-                        defaults={"value": value}
-                    )
-
-    @staticmethod
-    def get_memory_context(user):
-        memories = UserMemory.objects.filter(user=user)
-
-        return "\n".join([
-            f"{memory.key}: {memory.value}"
-            for memory in memories
-        ])
->>>>>>> 53e8d66e4be476e111c5aaf60c4a70bb6e1a1cff
