@@ -1,15 +1,34 @@
 from chatbot.models import ChatMessage
 
+
 class MemoryService:
+    @staticmethod
+    def get_memory_context(user=None, session=None, limit=5):
+        if session is not None:
+            messages = ChatMessage.objects.filter(session=session)
+        elif user is not None:
+            messages = ChatMessage.objects.filter(session__user=user)
+        else:
+            return "No memory available."
+
+        messages = messages.order_by("-created_at")[:limit]
+        history = []
+        for msg in reversed(messages):
+            history.append(f"{msg.sender}: {msg.content}")
+
+        return "\n".join(history)
 
     @staticmethod
-    def save(user, message, response):
+    def save_interaction(session, user_message, assistant_message, language="en"):
         ChatMessage.objects.create(
-            user=user,
-            message=message,
-            response=response
+            session=session,
+            sender="user",
+            content=user_message,
+            language=language,
         )
-
-    @staticmethod
-    def get_history(user, limit=5):
-        return ChatMessage.objects.filter(user=user).order_by('-id')[:limit]
+        ChatMessage.objects.create(
+            session=session,
+            sender="assistant",
+            content=assistant_message,
+            language=language,
+        )

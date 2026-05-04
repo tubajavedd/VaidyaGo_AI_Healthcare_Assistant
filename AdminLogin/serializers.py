@@ -65,18 +65,16 @@ class AdminSignupSerializer(serializers.ModelSerializer):
 class AdminLoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False, allow_blank=True)
     phone = serializers.CharField(required=False, allow_blank=True)
-    username = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(write_only=True)
 
     def validate(self, data):
         email = data.get('email', None)
         phone = data.get('phone', None)
-        username = data.get('username', None)
         password = data.get('password')
 
-        if not any([email, phone, username]):
+        if not any([email, phone]):
             raise serializers.ValidationError(
-                "Provide email, phone, or username with password."
+                "Provide email or phone with password."
             )
 
         user = None
@@ -84,8 +82,6 @@ class AdminLoginSerializer(serializers.Serializer):
             user = User.objects.filter(email=email).first()
         elif phone:
             user = User.objects.filter(phone=phone).first()
-        elif username:
-            user = User.objects.filter(username=username).first()
 
         if not user or not user.check_password(password):
             raise serializers.ValidationError("Invalid credentials")

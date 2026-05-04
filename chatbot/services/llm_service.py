@@ -1,55 +1,43 @@
 """
-LLM Service with multiple backend support
-- Local TinyLlama model
-- HuggingFace API
-- OpenAI API
-- Fallback JSON mode
+LLM Service wrapper that prefers Mistral API and falls back to simple local extraction logic.
 """
 
 import json
 import logging
-import os
-import requests
 
+from chatbot.services.mistral_service import MistralService
 from chatbot.services.smart_extractor import SmartIntentExtractor
+from chatbot.services.vaidyago_knowledge_base import VaidyaGoKnowledge
 
 logger = logging.getLogger(__name__)
 
 
 class LLMService:
     """
-    Central LLM service with multiple backend support
+    Central LLM service with Mistral API as primary backend.
+    Falls back to knowledge base for VaidyaGo questions, then to local extraction.
     """
 
-    BACKENDS = ["local", "openai", "huggingface", "fallback"]
+    BACKENDS = ["mistral", "knowledge", "fallback"]
 
     @staticmethod
     def generate_response(prompt: str) -> str:
-        """
-        Generate response using best available backend
-        """
         logger.info("Attempting to generate LLM response")
 
         for backend in LLMService.BACKENDS:
             try:
                 logger.debug(f"Trying backend: {backend}")
 
-                if backend == "local":
-                    result = LLMService._try_local_llm(prompt)
-
-                elif backend == "openai":
-                    result = LLMService._try_openai(prompt)
-
-                elif backend == "huggingface":
-                    result = LLMService._try_huggingface(prompt)
-
+                if backend == "mistral":
+                    result = MistralService.generate_response(prompt)
+                elif backend == "knowledge":
+                    result = LLMService._try_knowledge_base(prompt)
                 elif backend == "fallback":
                     result = LLMService._try_fallback(prompt)
-
                 else:
                     result = None
 
-                if result and not result.startswith("Error:"):
+                if result:
                     logger.info(f"Success using {backend}")
                     return result
 
@@ -57,199 +45,128 @@ class LLMService:
                 logger.warning(f"{backend} failed: {str(e)}")
                 continue
 
-        logger.warning("All backends failed. Using fallback.")
+        logger.warning("All backends failed. Using fallback response")
         return LLMService._try_fallback(prompt)
 
     @staticmethod
-    def _try_local_llm(prompt: str):
+    def _try_knowledge_base(prompt: str) -> str:
         """
-        Try local TinyLlama
-        """
-        try:
-            from transformers import pipeline
-
-            pipe = pipeline(
-                "text-generation",
-                model="TinyLlama/TinyLlama-1.1B-Chat-v1.0",
-                device=-1
-            )
-
-            result = pipe(
-                prompt,
-                max_new_tokens=300,
-                temperature=0.7,
-                do_sample=True,
-                top_p=0.95
-            )
-
-            if result:
-                return result[0].get("generated_text", "").strip()
-
-            return None
-
-        except Exception as e:
-            logger.debug(f"Local LLM failed: {str(e)}")
-            return None
-
-    @staticmethod
-    def _try_openai(prompt: str):
-        """
-        Try OpenAI API
-        """
-        try:
-            import openai
-
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                return None
-
-            openai.api_key = api_key
-
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=300,
-                timeout=30
-            )
-
-            return response.choices[0].message.content.strip()
-
-        except Exception as e:
-            logger.debug(f"OpenAI failed: {str(e)}")
-            return None
-
-    @staticmethod
-    def _try_huggingface(prompt: str):
-        """
-        Try HuggingFace API
-        """
-        try:
-            api_url = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
-            hf_api_key = os.getenv("HF_API_KEY")
-
-            if not hf_api_key:
-                return None
-
-            headers = {
-                "Authorization": f"Bearer {hf_api_key}"
-            }
-
-            payload = {
-                "inputs": prompt,
-                "parameters": {
-                    "max_new_tokens": 300,
-                    "temperature": 0.7
-                }
-            }
-
-            response = requests.post(
-                api_url,
-                headers=headers,
-                json=payload,
-                timeout=30,
-                proxies={"http": None, "https": None}
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-
-                if isinstance(data, list) and data:
-                    return data[0].get("generated_text", "").strip()
-
-                if isinstance(data, dict):
-                    return data.get("generated_text", "").strip()
-
-            logger.warning(
-                f"HuggingFace API error {response.status_code}: {response.text}"
-            )
-            return None
-
-        except Exception as e:
-            logger.debug(f"HuggingFace failed: {str(e)}")
-            return None
-
-    @staticmethod
-    def _try_fallback(prompt: str):
-        """
-        Simple fallback logic without LLM
+        Check VaidyaGo knowledge base for answers to platform questions.
         """
         try:
             message_start = prompt.find("--- USER MESSAGE ---")
-
             if message_start != -1:
                 parts = prompt[message_start:].split("\n")
-                if len(parts) > 1:
-                    message_part = parts[1].strip()
-                else:
-                    message_part = prompt[-200:] if len(prompt) > 200 else prompt
+                message_part = parts[1].strip() if len(parts) > 1 else prompt
             else:
-                message_part = prompt[-200:] if len(prompt) > 200 else prompt
+                message_part = prompt
 
-            lower_msg = message_part.lower()
+            answer = VaidyaGoKnowledge.get_answer(message_part)
+            
+            if answer:
+                return json.dumps({
+                    "intent": "chat",
+                    "action": None,
+                    "message": answer,
+                    "data": {},
+                    "confidence": 0.95,
+                })
 
-            intent = "chat"
-            action = None
-            message = "I'm here to help you."
-
-            data = {}
-
-            if any(word in lower_msg for word in ["book", "appointment", "schedule"]):
-                intent = "book_appointment"
-                action = "book_appointment"
-
-                extracted = SmartIntentExtractor.extract_appointment_details(
-                    message_part
-                )
-
-                data = {k: v for k, v in extracted.items() if v is not None}
-
-                booking_response = SmartIntentExtractor.build_booking_response(
-                    message_part,
-                    extracted
-                )
-
-                message = booking_response["message"]
-                data = booking_response.get("extracted", {})
-
-            elif "cancel" in lower_msg and "appointment" in lower_msg:
-                intent = "cancel_appointment"
-                action = "cancel_appointment"
-                message = "Please provide appointment ID to cancel."
-
-            elif "slot" in lower_msg or "available" in lower_msg:
-                intent = "get_doctor_slots"
-                action = "get_doctor_slots"
-                message = "Please provide doctor ID and date."
-
-            elif "prescription" in lower_msg or "medicine" in lower_msg:
-                intent = "prescriptions"
-                action = "get_prescriptions"
-                message = "Fetching prescriptions."
-
-            elif "notification" in lower_msg:
-                intent = "notifications"
-                action = "get_notifications"
-                message = "Fetching notifications."
-
-            response = {
-                "intent": intent,
-                "action": action,
-                "message": message,
-                "data": data,
-                "confidence": 0.7
-            }
-
-            logger.info(f"Fallback detected intent: {intent}")
-            return json.dumps(response)
+            return None
 
         except Exception as e:
-            logger.error(f"Fallback error: {str(e)}")
+            logger.debug(f"Knowledge base lookup failed: {str(e)}")
+            return None
 
+    @staticmethod
+    def _try_fallback(prompt: str) -> str:
+        try:
+            message_start = prompt.find("--- USER MESSAGE ---")
+            if message_start != -1:
+                parts = prompt[message_start:].split("\n")
+                message_part = parts[1].strip() if len(parts) > 1 else prompt
+            else:
+                message_part = prompt
+
+            lower_msg = message_part.lower()
+            intent = "chat"
+            action = None
+            response_message = "I'm here to help you."
+            data = {}
+
+            # 1. Check knowledge base directly with the refined keyword map
+            knowledge_answer = VaidyaGoKnowledge.get_answer(lower_msg)
+            if knowledge_answer:
+                # Priority for emergency intent
+                if any(term in lower_msg for term in ["chest pain", "breathe", "emergency", "heart attack", "unconscious", "bleeding"]):
+                    intent = "emergency"
+                
+                return json.dumps({
+                    "intent": intent,
+                    "action": None,
+                    "message": knowledge_answer,
+                    "data": {},
+                    "confidence": 0.9,
+                })
+
+            # 2. Check for action-triggering logic (Booking, Cancellation, etc.)
+            if any(phrase in lower_msg for phrase in ["how book", "how to book", "book appointment", "schedule appointment", "book a slot", "bok apointment"]):
+                intent = "book_appointment"
+                action = "book_appointment"
+                extracted = SmartIntentExtractor.extract_appointment_details(message_part)
+                data = {k: v for k, v in extracted.items() if v is not None}
+                booking_response = SmartIntentExtractor.build_booking_response(message_part, extracted)
+                response_message = booking_response.get("message", response_message)
+                data = booking_response.get("extracted", data)
+
+            elif any(word in lower_msg for word in ["book appointment", "schedule appointment", "book a slot", "appointment"]):
+                intent = "book_appointment"
+                action = "book_appointment"
+                extracted = SmartIntentExtractor.extract_appointment_details(message_part)
+                data = {k: v for k, v in extracted.items() if v is not None}
+                booking_response = SmartIntentExtractor.build_booking_response(message_part, extracted)
+                response_message = booking_response.get("message", response_message)
+                data = booking_response.get("extracted", data)
+
+            elif any(phrase in lower_msg for phrase in ["cancel appointment", "how cancel", "delete appointment", "cncl"]):
+                intent = "cancel_appointment"
+                action = "cancel_appointment"
+                response_message = "I can help cancel your appointment. Please provide the appointment ID."
+
+            elif "reschedule" in lower_msg and "appointment" in lower_msg:
+                intent = "reschedule_appointment"
+                action = "reschedule_appointment"
+                response_message = "I can help reschedule your appointment. Please provide the appointment ID, new date, and time."
+
+            elif any(phrase in lower_msg for phrase in ["find doctor", "doctor slots", "available slot", "slots"]):
+                intent = "get_doctor_slots"
+                action = "get_doctor_slots"
+                response_message = "I can check doctor availability. Please share the doctor name and desired date."
+
+            elif any(phrase in lower_msg for phrase in ["prescription", "medicine", "medication", "my prescriptions"]):
+                intent = "get_prescriptions"
+                action = "get_prescriptions"
+                response_message = "I can fetch your prescriptions for you."
+
+            elif "notification" in lower_msg:
+                intent = "get_notifications"
+                action = "get_notifications"
+                response_message = "I can pull your latest notifications."
+
+            return json.dumps({
+                "intent": intent,
+                "action": action,
+                "message": response_message,
+                "data": data,
+                "confidence": 0.8 if action else 0.85,
+            })
+
+        except Exception as exc:
+            logger.error(f"Fallback parse failed: {str(exc)}")
             return json.dumps({
                 "intent": "chat",
                 "action": None,
-                "message": "Hello, I'm Vado. How may I help you?",
+                "message": "I am here to help you with VaidyaGo. You can ask me about booking appointments, managing healthcare, or anything about the platform.",
                 "data": {},
-                "confidence": 0.5
+                "confidence": 0.0,
             })

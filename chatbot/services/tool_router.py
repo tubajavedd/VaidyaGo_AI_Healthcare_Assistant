@@ -1,421 +1,468 @@
-import requests
 import logging
 import re
-import json
-from django.core.exceptions import ObjectDoesNotExist
-from django.test import RequestFactory
-from django.http import HttpRequest
-from django.contrib.auth.models import User
+from datetime import datetime, timedelta
 
-from chatbot.services.tools_registry import ToolsRegistry
+from django.db import transaction
+from Dr_personalInfo.models import DoctorPersonalInfo
+from DoctorSlot.models import TimeSlot
+from appointments.models import Appointment
 
 logger = logging.getLogger(__name__)
 
 
 class ToolRouter:
     """
-    Routes and executes available tools/APIs based on user intent
+    Executes actions based on LLM intent output.
     """
 
     @staticmethod
     def execute(intent_data, user):
-        """
-        Execute the appropriate tool based on intent
-        """
-
-        action = intent_data.get("action")
-        data = intent_data.get("data", {})
+        action = intent_data.get("action") or intent_data.get("intent")
+        data = intent_data.get("data", {}) or {}
         message = intent_data.get("message", "")
 
-        # If no action, just return the message
-        if not action:
-            return {
-                "message": message,
-                "action_executed": False
-            }
+        logger.info(f"ToolRouter received action: {action}")
 
-        # Check if tool exists in registry
-        tool = ToolsRegistry.get_tool(action)
-        if not tool:
+        if not action or action == "chat":
             return {
-                "message": f"I don't have access to the '{action}' action.",
-                "action_executed": False
-            }
-
-        # Auto-fill missing information based on action
-        data = ToolRouter._auto_fill_missing_info(action, data, user)
-
-        # Check for required parameters after auto-fill
-        missing_params = ToolRouter._validate_parameters(tool, data)
-        if missing_params:
-            return {
-                "message": f"{message}\n\nMissing required information: {', '.join(missing_params)}",
+                "message": message or "How can I help you today?",
                 "action_executed": False,
-                "missing_parameters": missing_params
+                "data": {},
             }
 
-        try:
-            # Execute the tool
-            result = ToolRouter._execute_tool(action, tool, data, user)
-            result["action_executed"] = True
-            return result
-        except Exception as e:
-            logger.error(f"Error executing tool {action}: {str(e)}")
-            return {
-                "message": f"Error executing {action}: {str(e)}",
-                "action_executed": False,
-                "error": str(e)
-            }
-
-    @staticmethod
-    def _auto_fill_missing_info(action, data, user):
-        """
-        Auto-fill missing information for specific actions.
-        Currently handles:
-        - book_appointment: Fill patient_name, patient_phone from user profile
-                          Fill slot ID by resolving doctor + date + time
-        """
         if action == "book_appointment":
-            # 1. Auto-fill patient info from authenticated user
-            data = ToolRouter._auto_fill_patient_info(data, user)
-            
-            # 2. Auto-resolve slot ID if missing
-            data = ToolRouter._auto_resolve_slot(data)
-        
-        return data
+            return ToolRouter._book_appointment(data, user)
+
+        if action == "get_doctor_slots":
+            return ToolRouter._get_doctor_slots(data)
+
+        if action == "cancel_appointment":
+            return ToolRouter._cancel_appointment(data)
+
+        if action == "reschedule_appointment":
+            return ToolRouter._reschedule_appointment(data)
+
+        if action == "list_appointments":
+            return ToolRouter._list_appointments(user)
+
+        if action == "get_prescriptions":
+            return {
+                "message": "I can fetch your prescriptions, but this feature is not available yet.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        if action == "get_notifications":
+            return {
+                "message": "I can show your notifications, but no notifications endpoint is configured yet.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        return {
+            "message": message or f"I could not process the action '{action}'.",
+            "action_executed": False,
+            "data": {},
+        }
 
     @staticmethod
-    def _auto_fill_patient_info(data, user):
-        """
-        Auto-fill patient_name and patient_phone from authenticated user's profile
-        """
-        # Check if patient_name or patient_phone are missing
-        needs_name = "patient_name" not in data or not data.get("patient_name")
-        needs_phone = "patient_phone" not in data or not data.get("patient_phone")
-        
-        if not needs_name and not needs_phone:
-            return data  # Nothing to fill
-        
-        # Try to get info from authenticated user
-        if user and user.is_authenticated:
+    def _book_appointment(data, user):
+        doctor = ToolRouter._resolve_doctor(data.get("doctor_name"), data.get("doctor_id"))
+        if not doctor:
+            return {
+                "message": "I could not find the doctor you requested. Please provide doctor name or ID.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        date_value = ToolRouter._format_date(data.get("date"))
+        time_value = ToolRouter._format_time(data.get("time"))
+
+        missing = []
+        if not date_value:
+            missing.append("date")
+        if not time_value:
+            missing.append("time")
+
+        if missing:
+            return {
+                "message": f"I need the appointment date and time to book. Missing: {', '.join(missing)}.",
+                "action_executed": False,
+                "data": {"missing_fields": missing},
+            }
+
+        slot = ToolRouter._find_available_slot(doctor, date_value, time_value)
+        if not slot:
+            slots = ToolRouter._list_available_slots(doctor, date_value)
+            if slots:
+                return {
+                    "message": (
+                        f"I could not find a free slot at {ToolRouter._human_time(time_value)} for Dr. {doctor.last_name}. "
+                        f"Available times on {date_value}: {', '.join(slots)}."
+                    ),
+                    "action_executed": False,
+                    "data": {"available_slots": slots},
+                }
+            return {
+                "message": f"No available slots found for Dr. {doctor.last_name} on {date_value}.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        patient_name = data.get("patient_name") or ToolRouter._extract_patient_name(user)
+        patient_phone = data.get("patient_phone") or ToolRouter._extract_patient_phone(user)
+
+        if not patient_name or not patient_phone:
+            return {
+                "message": "I need your name and phone number to complete the booking.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        try:
+            with transaction.atomic():
+                appointment = Appointment.objects.create(
+                    doctor=doctor,
+                    slot=slot,
+                    user=user.id if user else None,
+                    patient_name=patient_name,
+                    patient_phone=patient_phone,
+                    start_time=slot.start_time,
+                    end_time=slot.end_time,
+                )
+                slot.is_booked = True
+                slot.save()
+
+            return {
+                "message": (
+                    f"Your appointment with Dr. {doctor.first_name} {doctor.last_name} has been booked for "
+                    f"{date_value} at {ToolRouter._human_time(time_value)}."
+                ),
+                "action_executed": True,
+                "data": {"appointment_id": appointment.id, "doctor_id": doctor.id, "slot_id": slot.id},
+            }
+        except Exception as exc:
+            logger.error(f"Booking failed: {exc}")
+            return {
+                "message": f"I could not complete the booking: {exc}",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _get_doctor_slots(data):
+        doctor = ToolRouter._resolve_doctor(data.get("doctor_name"), data.get("doctor_id"))
+        if not doctor:
+            return {
+                "message": "Please provide a valid doctor name or ID to fetch available slots.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        date_value = ToolRouter._format_date(data.get("date"))
+        slots = ToolRouter._list_available_slots(doctor, date_value)
+        if not slots:
+            return {
+                "message": (
+                    f"No available slots were found for Dr. {doctor.first_name} {doctor.last_name} "
+                    f"on {date_value or 'the selected date'}."
+                ),
+                "action_executed": False,
+                "data": {},
+            }
+
+        return {
+            "message": (
+                f"Available slots for Dr. {doctor.first_name} {doctor.last_name} "
+                f"on {date_value or 'the selected date'}: {', '.join(slots)}."
+            ),
+            "action_executed": False,
+            "data": {"available_slots": slots, "doctor_id": doctor.id, "date": date_value},
+        }
+
+    @staticmethod
+    def _cancel_appointment(data):
+        appointment_id = data.get("appointment_id")
+        if not appointment_id:
+            return {
+                "message": "I need the appointment ID to cancel your appointment.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        try:
+            appointment = Appointment.objects.get(id=appointment_id)
+            if appointment.status == "cancelled":
+                return {
+                    "message": "This appointment has already been cancelled.",
+                    "action_executed": False,
+                    "data": {},
+                }
+            appointment.status = "cancelled"
+            appointment.save()
+            if appointment.slot:
+                appointment.slot.is_booked = False
+                appointment.slot.save()
+            return {
+                "message": "Your appointment has been cancelled successfully.",
+                "action_executed": True,
+                "data": {"appointment_id": appointment_id},
+            }
+        except Appointment.DoesNotExist:
+            return {
+                "message": "I could not find that appointment ID.",
+                "action_executed": False,
+                "data": {},
+            }
+        except Exception as exc:
+            logger.error(f"Cancel appointment error: {exc}")
+            return {
+                "message": f"Unable to cancel appointment: {exc}",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _reschedule_appointment(data):
+        appointment_id = data.get("appointment_id")
+        new_date = ToolRouter._format_date(data.get("new_date") or data.get("date"))
+        new_time = ToolRouter._format_time(data.get("new_time") or data.get("time"))
+
+        if not appointment_id or not new_date or not new_time:
+            return {
+                "message": "To reschedule, I need the appointment ID, new date, and new time.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        try:
+            appointment = Appointment.objects.get(id=appointment_id)
+            doctor = appointment.doctor
+            new_slot = ToolRouter._find_available_slot(doctor, new_date, new_time)
+            if not new_slot:
+                return {
+                    "message": "I could not find an available slot for the requested time.",
+                    "action_executed": False,
+                    "data": {},
+                }
+
+            with transaction.atomic():
+                if appointment.slot:
+                    appointment.slot.is_booked = False
+                    appointment.slot.save()
+
+                appointment.slot = new_slot
+                appointment.start_time = new_slot.start_time
+                appointment.end_time = new_slot.end_time
+                appointment.status = "booked"
+                appointment.save()
+                new_slot.is_booked = True
+                new_slot.save()
+
+            return {
+                "message": (
+                    f"Your appointment has been rescheduled to {new_date} at {ToolRouter._human_time(new_time)}."
+                ),
+                "action_executed": True,
+                "data": {"appointment_id": appointment.id, "slot_id": new_slot.id},
+            }
+        except Appointment.DoesNotExist:
+            return {
+                "message": "I could not find that appointment.",
+                "action_executed": False,
+                "data": {},
+            }
+        except Exception as exc:
+            logger.error(f"Reschedule error: {exc}")
+            return {
+                "message": f"Unable to reschedule appointment: {exc}",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _list_appointments(user):
+        if not user:
+            return {
+                "message": "Log in to see your appointments.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        appointments = Appointment.objects.filter(user=user.id, status="booked").order_by("start_time")
+        appointment_list = [
+            {
+                "id": appt.id,
+                "doctor": f"{appt.doctor.first_name} {appt.doctor.last_name}",
+                "date": appt.start_time.strftime("%Y-%m-%d"),
+                "time": appt.start_time.strftime("%H:%M"),
+                "status": appt.status,
+            }
+            for appt in appointments
+        ]
+
+        return {
+            "message": f"You have {len(appointment_list)} upcoming appointment(s).",
+            "action_executed": False,
+            "data": {"appointments": appointment_list},
+        }
+
+    @staticmethod
+    def _resolve_doctor(doctor_name, doctor_id):
+        if doctor_id:
             try:
-                # Try to get user profile from user profile API
-                base_url = "http://localhost:8000"
-                profile_url = f"{base_url}/auth/profile/"
-                headers = {"Content-Type": "application/json"}
-                
-                response = requests.get(profile_url, headers=headers, timeout=10)
-                if response.status_code == 200:
-                    profile_data = response.json()
-                    user_profile = profile_data.get("user", {})
-                    
-                    if needs_name and not data.get("patient_name"):
-                        # Try to get name from profile
-                        profile_name = user_profile.get("name") or user_profile.get("first_name")
-                        if profile_name:
-                            data["patient_name"] = profile_name
-                        elif user.get_full_name():
-                            data["patient_name"] = user.get_full_name()
-                        elif user.username:
-                            data["patient_name"] = user.username
-                    
-                    if needs_phone and not data.get("patient_phone"):
-                        phone = user_profile.get("phone") or user_profile.get("phone_number")
-                        if phone:
-                            data["patient_phone"] = phone
-                            
-            except Exception as e:
-                logger.warning(f"Failed to auto-fill patient info from profile: {str(e)}")
-        
-        return data
+                return DoctorPersonalInfo.objects.get(id=doctor_id)
+            except DoctorPersonalInfo.DoesNotExist:
+                return None
 
-    @staticmethod
-    def _auto_resolve_slot(data):
-        """
-        Auto-resolve slot ID from doctor name, date, and time.
-        If slot is missing but doctor_name, date, and time are provided,
-        fetch available slots and find the matching one.
-        """
-        if "slot" in data and data.get("slot"):
-            return data  # Slot already provided
-        
-        # Check if we have enough info to resolve slot
-        doctor_id = data.get("doctor_id")
-        doctor_name = data.get("doctor_name")
-        date = data.get("date")
-        time = data.get("time")
-        
-        if not (date and time and (doctor_id or doctor_name)):
-            logger.debug("Insufficient info to auto-resolve slot")
-            return data
-        
-        # First, resolve doctor_name to doctor_id if needed
-        if not doctor_id and doctor_name:
-            doctor_id = ToolRouter._resolve_doctor_id(doctor_name)
-            if not doctor_id:
-                logger.warning(f"Could not resolve doctor ID for: {doctor_name}")
-                return data
-            data["doctor_id"] = doctor_id
-        
-        # Try to get slot ID
-        try:
-            base_url = "http://localhost:8000"
-            # Format the date if needed (convert day name to date)
-            formatted_date = ToolRouter._format_date(date)
-            
-            slots_url = f"{base_url}/api/doctor/{doctor_id}/slots/?date={formatted_date}"
-            headers = {"Content-Type": "application/json"}
-            
-            response = requests.get(slots_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                slots_data = response.json()
-                available_slots = slots_data.get("available_slots", [])
-                
-                # Try to find matching slot by time
-                for slot in available_slots:
-                    slot_time = slot.get("time")
-                    slot_id = slot.get("id")
-                    
-                    if slot_time == time:
-                        data["slot"] = slot_id
-                        logger.info(f"Auto-resolved slot ID: {slot_id} for time {time}")
-                        return data
-                
-                # If exact match not found, try partial match
-                # E.g., "10:00" might match "10:00:00"
-                for slot in available_slots:
-                    slot_time = slot.get("time", "")
-                    slot_id = slot.get("id")
-                    
-                    # Remove seconds for comparison
-                    if slot_time and time:
-                        slot_time_clean = slot_time.split(":")[0] + ":" + slot_time.split(":")[1] if ":" in slot_time else slot_time
-                        time_clean = time.split(":")[0] + ":" + time.split(":")[1] if ":" in time else time
-                        
-                        if slot_time_clean == time_clean:
-                            data["slot"] = slot_id
-                            logger.info(f"Auto-resolved slot ID: {slot_id} for time {time}")
-                            return data
-                            
-        except Exception as e:
-            logger.warning(f"Failed to auto-resolve slot: {str(e)}")
-        
-        return data
+        if not doctor_name:
+            return None
 
-    @staticmethod
-    def _resolve_doctor_id(doctor_name):
-        """
-        Resolve doctor_name to doctor_id by searching doctors
-        """
-        try:
-            base_url = "http://localhost:8000"
-            # Try to search for doctor by name
-            search_url = f"{base_url}/api/doctors/search/?name={doctor_name}"
-            headers = {"Content-Type": "application/json"}
-            
-            response = requests.get(search_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                doctors = response.json()
-                if doctors:
-                    return doctors[0].get("id")
-            
-            # Alternative: try to list doctors and find by name
-            list_url = f"{base_url}/api/doctors/list/"
-            response = requests.get(list_url, headers=headers, timeout=10)
-            if response.status_code == 200:
-                doctors = response.json()
-                for doctor in doctors:
-                    doc_name = doctor.get("name", "") or doctor.get("first_name", "") or ""
-                    if doctor_name.lower() in doc_name.lower():
-                        return doctor.get("id")
-                        
-        except Exception as e:
-            logger.warning(f"Failed to resolve doctor ID: {str(e)}")
-        
-        return None
+        normalized = re.sub(r"^(dr\.?\s*|doctor\s+)", "", doctor_name.strip(), flags=re.IGNORECASE)
+        parts = normalized.split()
+        queryset = DoctorPersonalInfo.objects.all()
+
+        if len(parts) == 1:
+            return queryset.filter(
+                first_name__icontains=parts[0]
+            ).first() or queryset.filter(last_name__icontains=parts[0]).first()
+
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            doctor = queryset.filter(
+                first_name__icontains=first,
+                last_name__icontains=last,
+            ).first()
+            if doctor:
+                return doctor
+
+        return queryset.filter(
+            first_name__icontains=normalized
+        ).first() or queryset.filter(last_name__icontains=normalized).first()
 
     @staticmethod
     def _format_date(date_input):
-        """
-        Format date input to YYYY-MM-DD format.
-        Handles day names like 'monday', 'tuesday', etc.
-        """
-        from datetime import datetime, timedelta
-        
+        if not date_input:
+            return None
+
         date_str = str(date_input).strip().lower()
-        
-        # If already in YYYY-MM-DD format, return as-is
-        if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
-            return date_str
-        
-        # Map day names to day offsets
         today = datetime.now()
-        day_map = {
+
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+            return date_str
+
+        if date_str == "today":
+            return today.strftime("%Y-%m-%d")
+
+        if date_str == "tomorrow":
+            return (today + timedelta(days=1)).strftime("%Y-%m-%d")
+
+        weekdays = {
             "monday": 0,
             "tuesday": 1,
             "wednesday": 2,
             "thursday": 3,
             "friday": 4,
             "saturday": 5,
-            "sunday": 6
+            "sunday": 6,
         }
-        
-        if date_str in day_map:
-            # Calculate days until the target day
-            current_day = today.weekday()
-            target_day = day_map[date_str]
-            days_ahead = target_day - current_day
-            if days_ahead <= 0:  # Target day is today or already passed this week
-                days_ahead += 7  # Next week's occurrence
-            
-            target_date = today + timedelta(days=days_ahead)
-            return target_date.strftime("%Y-%m-%d")
-        
-        # Try parsing as other date formats
+
+        if date_str in weekdays:
+            target = weekdays[date_str]
+            delta = target - today.weekday()
+            if delta <= 0:
+                delta += 7
+            return (today + timedelta(days=delta)).strftime("%Y-%m-%d")
+
+        return None
+
+    @staticmethod
+    def _format_time(time_input):
+        if not time_input:
+            return None
+
+        time_str = str(time_input).strip().lower()
+        match = re.match(r"^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$", time_str)
+        if not match:
+            return None
+
+        hour = int(match.group(1))
+        minute = int(match.group(2) or 0)
+        period = match.group(3)
+
+        if period:
+            if period == "pm" and hour != 12:
+                hour += 12
+            if period == "am" and hour == 12:
+                hour = 0
+
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            return None
+
+        return f"{hour:02d}:{minute:02d}"
+
+    @staticmethod
+    def _human_time(time_value):
         try:
-            parsed = datetime.strptime(date_str, "%d-%m-%Y")
-            return parsed.strftime("%Y-%m-%d")
-        except:
-            pass
-        
-        # Return original if can't parse
-        return date_input
+            dt = datetime.strptime(time_value, "%H:%M")
+            return dt.strftime("%I:%M %p").lstrip("0")
+        except Exception:
+            return time_value
 
     @staticmethod
-    def _validate_parameters(tool, data):
-        """
-        Check if all required parameters are present
-        Returns list of missing parameters, empty if all present
-        """
-        missing = []
-        params = tool.get("parameters", {})
-        
-        for param_name, param_info in params.items():
-            is_required = param_info.get("required", True)
-            if not is_required:
-                continue
+    def _find_available_slot(doctor, date_value, time_value):
+        if not doctor or not date_value or not time_value:
+            return None
 
-            # Parameters in URL are still required but handled separately
-            if "{" + param_name + "}" in tool.get("endpoint", ""):
-                if param_name not in data or data[param_name] is None or data[param_name] == "":
-                    missing.append(param_name)
-                continue
-
-            if param_name not in data or data[param_name] is None or data[param_name] == "":
-                missing.append(param_name)
-
-        return missing
-
+        try:
+            return TimeSlot.objects.filter(
+                doctor=doctor,
+                is_booked=False,
+                start_time__date=date_value,
+                start_time__time=datetime.strptime(time_value, "%H:%M").time(),
+            ).first()
+        except Exception:
+            return None
 
     @staticmethod
-    def _execute_tool(action_name, tool, data, user):
-        """
-        Execute a specific tool/API
-        """
-
-        # Get base URL - adjust this to your actual domain
-        base_url = "http://localhost:8000"  # Change to your production URL
-        endpoint = tool.get("endpoint", "")
-        method = tool.get("method", "GET").upper()
-
-        # Build full URL with path parameters
-        url = ToolRouter._build_url(base_url, endpoint, data)
-
-        # Prepare headers
-        headers = {
-            "Content-Type": "application/json"
-        }
-
-        # Add authentication token if user is authenticated
-        if user and user.is_authenticated:
-            # If you're using token authentication, add it here
-            headers["Authorization"] = f"Bearer {user.auth_token}"
-            pass
-
-        logger.debug(f"Executing tool: {action_name}, URL: {url}, Method: {method}")
-
-        # Execute based on HTTP method
-        if method == "GET":
-            response = requests.get(url, headers=headers, timeout=30)
-        elif method == "POST":
-            response = requests.post(url, json=data, headers=headers, timeout=30)
-        elif method == "PUT":
-            response = requests.put(url, json=data, headers=headers, timeout=30)
-        elif method == "PATCH":
-            response = requests.patch(url, json=data, headers=headers, timeout=30)
-        elif method == "DELETE":
-            response = requests.delete(url, headers=headers, timeout=30)
-        else:
-            return {
-                "message": f"Unsupported HTTP method: {method}",
-                "error": "invalid_method"
-            }
-
-        # Handle response
-        if response.status_code in [200, 201, 202]:
-            try:
-                result = response.json()
-                return {
-                    "message": result.get("message", f"{action_name} executed successfully"),
-                    "data": result,
-                    "status": "success"
-                }
-            except Exception as e:
-                return {
-                    "message": f"{action_name} executed successfully",
-                    "status": "success",
-                    "data": response.text
-                }
-        else:
-            try:
-                error_detail = response.json()
-            except:
-                error_detail = response.text
-
-            logger.error(f"Tool {action_name} returned status {response.status_code}: {error_detail}")
-            return {
-                "message": f"Error executing {action_name}: {error_detail}",
-                "error": error_detail,
-                "status": "error"
-            }
+    def _list_available_slots(doctor, date_value=None):
+        query = TimeSlot.objects.filter(doctor=doctor, is_booked=False)
+        if date_value:
+            query = query.filter(start_time__date=date_value)
+        slots = query.order_by("start_time")[:10]
+        return [slot.start_time.strftime("%H:%M") for slot in slots]
 
     @staticmethod
-    def _build_url(base_url, endpoint, data):
-        """
-        Build URL by replacing path parameters
-        
-        Example: 
-        - endpoint: "/api/appointments/{appointment_id}/cancel/"
-        - data: {"appointment_id": 123, "reason": "..."}
-        - result: "/api/appointments/123/cancel/"
-        """
-        url = endpoint
-        
-        # Find all path parameters in format {param_name}
-        param_pattern = r'\{(\w+)\}'
-        params_found = re.findall(param_pattern, url)
-        
-        # Replace each parameter with value from data
-        for param in params_found:
-            if param in data:
-                url = url.replace(f"{{{param}}}", str(data[param]))
-                # Remove from data so it's not included in request body
-                del data[param]
-        
-        return base_url + url
+    def _extract_patient_name(user):
+        if not user:
+            return None
+        full_name = getattr(user, "get_full_name", None)
+        if callable(full_name):
+            return full_name() or getattr(user, "username", None)
+        return getattr(user, "username", None)
+
+    @staticmethod
+    def _extract_patient_phone(user):
+        if not user:
+            return None
+        try:
+            return getattr(user.profile, "phone", None)
+        except Exception:
+            return None
 
     @staticmethod
     def get_available_tools(category=None):
-        """
-        Get list of available tools
-        """
-        if category:
-            tools = ToolsRegistry.get_tools_by_category(category)
-        else:
-            tools = ToolsRegistry.get_all_tools()
-
         return {
-            "tools": list(tools.keys()),
-            "count": len(tools),
-            "category": category
+            "tools": [
+                "chat",
+                "book_appointment",
+                "get_doctor_slots",
+                "cancel_appointment",
+                "reschedule_appointment",
+                "list_appointments",
+                "get_prescriptions",
+                "get_notifications",
+            ],
+            "count": 8,
+            "category": category,
         }

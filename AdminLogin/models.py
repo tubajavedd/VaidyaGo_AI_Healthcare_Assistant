@@ -5,12 +5,10 @@ from django.conf import settings
 
 
 USER_TYPE_CHOICES = (
-    ('patient', 'Patient'),
-    ('admin', 'Admin'),
-    ('doctor', 'Doctor'),
+    ('ADMIN', 'Admin'),
+    ('DCOTOR', 'Doctor'),
+    ('PATIENT', 'Patient'),
 )
-
-usertype = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='patient')
 
 #------------ADDRESS
 class Address(models.Model):

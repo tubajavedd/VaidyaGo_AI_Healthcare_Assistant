@@ -27,8 +27,7 @@ from .models import Doctor, OTP
 from .serializers import DoctorSerializer, AdminLoginSerializer
 from .permissions import IsAdmin
 from Dr_personalInfo.models import DoctorPersonalInfo
-from Notifications.services.email_service import send_email
-from Notifications.services.templates import otp_email_template
+
 
 User = get_user_model()
 
@@ -234,39 +233,24 @@ class AdminLoginView(APIView):
 
 
 # ****************** SEND OTP ******************
-from django.core.mail import send_mail
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.conf import settings
-import traceback
-
-# ****************** SEND OTP ******************
 @api_view(["POST"])
 def send_otp(request):
-    try:
-        email = request.data.get("email")
+    email = request.data.get("email")
+    otp = generate_otp()
 
-        if not email:
-            return Response({"error": "Provide email"}, status=400)
-
-        otp = generate_otp()
-
-        # Save OTP in DB
+    if email:
         OTP.objects.create(email=email, otp=otp)
 
-        # Send OTP email (SendGrid via notifications service)
-        send_email(
-            subject="OTP Verification",
-            message=otp_email_template(otp),
-            recipient_list=[email]
+        send_mail(
+            "VaidyaGo",
+            f"Your OTP is {otp}",
+            "javedtuba1@gmail.com",
+            [email],
+            fail_silently=False,
         )
+        return Response({"message": "OTP sent to email"})
 
-        return Response({"message": "OTP sent successfully"}, status=200)
-
-    except Exception as e:
-        print("EMAIL ERROR:", str(e))
-        print(traceback.format_exc())
-        return Response({"error": str(e)}, status=500)
+    return Response({"error": "Provide email"})
 
 
 # ****************** VERIFY OTP ******************
@@ -274,22 +258,20 @@ def send_otp(request):
 def verify_otp(request):
     otp = request.data.get("otp")
 
-    if not otp:
-        return Response({"error": "OTP required"}, status=400)
-
     otp_obj = OTP.objects.filter(otp=otp).last()
 
     if not otp_obj:
-        return Response({"error": "Invalid OTP"}, status=400)
+        return Response({"error": "Invalid OTP"})
 
-    # check expiry (5 min)
     if timezone.now() - otp_obj.created_at > timedelta(minutes=5):
-        return Response({"error": "OTP expired"}, status=400)
+        return Response({"error": "OTP expired"})
 
     otp_obj.is_verified = True
     otp_obj.save()
 
-    return Response({"message": "OTP verified successfully"}, status=200)
+    return Response({"message": "OTP verified"})
+
+
 # ****************** RESET PASSWORD ******************
 @api_view(["POST"])
 def reset_password(request):
@@ -331,7 +313,7 @@ def reset_password(request):
 
 # ****************** GET PENDING DOCTORS ******************
 @api_view(["GET"])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def pending_doctors(request):
     DoctorPersonalInfo.objects.filter(
         status="incomplete"
@@ -352,7 +334,7 @@ def pending_doctors(request):
 
 # ****************** APPROVE DOCTOR ******************
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def approve_doctor(request, doctor_id):
     doctor = get_object_or_404(
         DoctorPersonalInfo,
@@ -389,7 +371,7 @@ def approve_doctor(request, doctor_id):
 
 # ****************** REJECT DOCTOR ******************
 @api_view(["POST"])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdmin])
 def reject_doctor(request, doctor_id):
     doctor = get_object_or_404(
         DoctorPersonalInfo,
@@ -422,10 +404,11 @@ def reject_doctor(request, doctor_id):
         send_mail(
             subject="Application Rejected",
             message=f"""
-            Your application has been rejected.
-            Reason: {reason}
+Your application has been rejected.
 
-    Message: {message if message else "No additional message"}
+Reason: {reason}
+
+Message: {message if message else "No additional message"}
             """,
             from_email=getattr(
                 settings,
