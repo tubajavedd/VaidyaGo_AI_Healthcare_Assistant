@@ -66,15 +66,27 @@ Provide action names and required parameters if the user request should trigger 
         return description
 
     @staticmethod
-    def build_prompt(message, memory=None, history=None):
+    def build_prompt(message, user=None, memory=None, history=None):
+        from datetime import datetime
+        from chatbot.services.tool_router import ToolRouter
+        current_time = datetime.now().strftime("%A, %B %d, %Y %I:%M %p")
+        
         memory = memory if memory else "No memory available."
         history = history if history else "No conversation history."
         tools_desc = PromptService.get_tools_description()
+
+        user_info = "Unknown User (Not logged in)"
+        if user:
+            name = ToolRouter._extract_patient_name(user)
+            phone = ToolRouter._extract_patient_phone(user)
+            user_info = f"Logged-in Patient: {name} (Phone: {phone})"
 
         prompt = f"""{PromptService.SYSTEM_PROMPT}
 {tools_desc}
 
 --- CONVERSATION CONTEXT ---
+Current Time: {current_time}
+User Info: {user_info}
 Memory:
 {memory}
 
@@ -86,8 +98,9 @@ Chat History:
 
 --- INSTRUCTIONS ---
 1. Decide if the user needs a normal conversational answer or an action.
-2. If you choose an action, set "action" and include structured data.
-3. If this is a general healthcare question or question about VaidyaGo, set "action": null and return a friendly answer.
-4. Always return valid JSON and nothing else.
+2. If the User Info is available, use it as the patient's identity for bookings. Do not ask for their name if it is already in User Info.
+3. If you choose an action, set "action" and include structured data.
+4. If this is a general healthcare question or question about VaidyaGo, set "action": null and return a friendly answer.
+5. Always return valid JSON and nothing else.
 """
         return prompt

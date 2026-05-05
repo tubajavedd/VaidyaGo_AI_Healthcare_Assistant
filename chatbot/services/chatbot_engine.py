@@ -54,6 +54,7 @@ class ChatbotEngine:
 
         prompt = PromptService.build_prompt(
             message=message,
+            user=user,
             memory=memory_context,
             history=history,
         )

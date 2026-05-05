@@ -353,7 +353,7 @@ def approve_doctor(request, doctor_id):
     doctor.rejected_file = None
     doctor.save()
 
-    if doctor.user and doctor.user.email:
+    if doctor.email:
         send_mail(
             subject="Application Approved",
             message="Your doctor profile has been approved. You can now access the system.",
@@ -362,7 +362,7 @@ def approve_doctor(request, doctor_id):
                 "DEFAULT_FROM_EMAIL",
                 None
             ),
-            recipient_list=[doctor.user.email],
+            recipient_list=[doctor.email],
             fail_silently=True,
         )
 
@@ -400,7 +400,7 @@ def reject_doctor(request, doctor_id):
     doctor.rejected_file = file
     doctor.save()
 
-    if doctor.user and doctor.user.email:
+    if doctor.email:
         send_mail(
             subject="Application Rejected",
             message=f"""
@@ -415,7 +415,7 @@ Message: {message if message else "No additional message"}
                 "DEFAULT_FROM_EMAIL",
                 None
             ),
-            recipient_list=[doctor.user.email],
+            recipient_list=[doctor.email],
             fail_silently=False,
         )
 

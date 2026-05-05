@@ -81,6 +81,13 @@ class SmartIntentExtractor:
         if time_info:
             details["time"] = time_info
         
+        # Additional cleanup for time extraction if it missed AM/PM logic
+        if details["time"] and ("pm" in lower_msg or "am" in lower_msg):
+            # If the user said "4pm" but it extracted "04:00", fix it
+            if "pm" in lower_msg and int(details["time"].split(':')[0]) < 12:
+                h = int(details["time"].split(':')[0]) + 12
+                details["time"] = f"{h:02d}:{details['time'].split(':')[1]}"
+        
         # Extract reason/purpose
         reason_patterns = [
             r"(?:for|reason|purpose)[:\s]+([a-z\s]+?)(?:,|$)",
@@ -151,32 +158,37 @@ class SmartIntentExtractor:
     @staticmethod
     def _extract_time(message: str) -> str:
         """Extract time from message in HH:MM format"""
+        lower_msg = message.lower()
         
-        # Look for time patterns like "10 AM", "3:30 PM", "15:30"
+        # Improved patterns to handle 4pm, 10am, 4:30 pm etc.
         time_patterns = [
-            r"(\d{1,2}):(\d{2})\s*(am|pm)?",  # 10:30 AM or 15:30
-            r"(\d{1,2})\s*(am|pm)",  # 10 AM or 3 PM
+            r"(\d{1,2}):(\d{2})\s*(am|pm)?",
+            r"(\d{1,2})\s*(am|pm)",
+            r"at\s+(\d{1,2})",
         ]
         
         for pattern in time_patterns:
-            match = re.search(pattern, message, re.IGNORECASE)
+            match = re.search(pattern, lower_msg)
             if match:
                 groups = match.groups()
                 hour = int(groups[0])
+                minute = 0
                 
-                if len(groups) >= 3:
-                    # Has AM/PM
-                    minute = int(groups[1]) if groups[1].isdigit() else 0
-                    period = groups[2].lower()
+                # Check for minutes in pattern 1
+                if ":" in match.group(0):
+                    minute = int(groups[1])
+                
+                # Check for am/pm
+                period = None
+                for g in groups:
+                    if g in ['am', 'pm']:
+                        period = g
+                
+                if period == "pm" and hour != 12:
+                    hour += 12
+                elif period == "am" and hour == 12:
+                    hour = 0
                     
-                    if period == "pm" and hour != 12:
-                        hour += 12
-                    elif period == "am" and hour == 12:
-                        hour = 0
-                else:
-                    # Assume 24-hour format or AM if <= 12
-                    minute = int(groups[1]) if len(groups) > 1 and groups[1].isdigit() else 0
-                
                 return f"{hour:02d}:{minute:02d}"
         
         return None
@@ -184,50 +196,38 @@ class SmartIntentExtractor:
     @staticmethod
     def build_booking_response(message: str, extracted: dict) -> dict:
         """
-        Build a response based on extracted details
-        Returns missing fields that need user input
+        Build a conversational response based on extracted details
         """
-        
-        missing = []
-        
-        if not extracted.get("patient_name"):
-            missing.append("patient_name")
-        if not extracted.get("patient_phone"):
-            missing.append("patient_phone")
-        
-        # For now, we don't require doctor_id since we can search by name
-        # or ask user to select from available doctors
-        
-        if not extracted.get("date"):
-            missing.append("date")
-        if not extracted.get("time"):
-            missing.append("time")
-        
-        # Build helpful message
-        if missing:
-            needed = []
-            if "patient_name" in missing:
-                needed.append("your name")
-            if "patient_phone" in missing:
-                needed.append("your phone number")
-            if "date" in missing:
-                needed.append("the appointment date")
-            if "time" in missing:
-                needed.append("the appointment time")
-            
-            message = f"I found some details from your message: {extracted}. "
-            message += f"To complete the booking, I still need: {', '.join(needed)}."
-            
+        if not extracted.get("doctor_name"):
             return {
                 "ready_to_book": False,
-                "extracted": extracted,
-                "missing": missing,
-                "message": message
+                "message": "Which doctor would you like to book an appointment with?",
+                "missing": ["doctor_name"]
             }
-        else:
+
+        if not extracted.get("date"):
             return {
-                "ready_to_book": True,
-                "extracted": extracted,
-                "missing": [],
-                "message": f"Great! I have all the details to book your appointment: {extracted}"
+                "ready_to_book": False,
+                "message": f"For which date would you like to book the appointment with Dr. {extracted['doctor_name']}?",
+                "missing": ["date"]
             }
+
+        if not extracted.get("time"):
+            return {
+                "ready_to_book": False,
+                "message": f"What time works for you on {extracted['date']}?",
+                "missing": ["time"]
+            }
+
+        if not extracted.get("patient_name"):
+            return {
+                "ready_to_book": False,
+                "message": "May I know the patient's name for this booking?",
+                "missing": ["patient_name"]
+            }
+
+        return {
+            "ready_to_book": True,
+            "extracted": extracted,
+            "message": f"Great! I have all the details to book your appointment with Dr. {extracted['doctor_name']} on {extracted['date']} at {extracted['time']}."
+        }

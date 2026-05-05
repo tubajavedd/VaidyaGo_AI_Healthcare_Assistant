@@ -78,17 +78,18 @@ class ToolRouter:
         date_value = ToolRouter._format_date(data.get("date"))
         time_value = ToolRouter._format_time(data.get("time"))
 
-        missing = []
         if not date_value:
-            missing.append("date")
-        if not time_value:
-            missing.append("time")
-
-        if missing:
             return {
-                "message": f"I need the appointment date and time to book. Missing: {', '.join(missing)}.",
+                "message": f"For which date would you like to book the appointment with Dr. {doctor.first_name} {doctor.last_name}?",
                 "action_executed": False,
-                "data": {"missing_fields": missing},
+                "data": {"missing_field": "date", "doctor_id": doctor.id},
+            }
+
+        if not time_value:
+            return {
+                "message": f"What time works for you on {date_value}?",
+                "action_executed": False,
+                "data": {"missing_field": "time", "date": date_value, "doctor_id": doctor.id},
             }
 
         slot = ToolRouter._find_available_slot(doctor, date_value, time_value)
@@ -112,34 +113,74 @@ class ToolRouter:
         patient_name = data.get("patient_name") or ToolRouter._extract_patient_name(user)
         patient_phone = data.get("patient_phone") or ToolRouter._extract_patient_phone(user)
 
-        if not patient_name or not patient_phone:
+        if not patient_name:
             return {
-                "message": "I need your name and phone number to complete the booking.",
+                "message": "May I know the patient's name for this booking?",
                 "action_executed": False,
-                "data": {},
+                "data": {"missing_field": "patient_name", "date": date_value, "time": time_value, "doctor_id": doctor.id},
+            }
+
+        if not patient_phone:
+            return {
+                "message": "And could you please provide a contact phone number?",
+                "action_executed": False,
+                "data": {"missing_field": "patient_phone", "date": date_value, "time": time_value, "doctor_id": doctor.id, "patient_name": patient_name},
             }
 
         try:
             with transaction.atomic():
+                # Re-fetch the slot with a lock to prevent race conditions
+                locked_slot = TimeSlot.objects.select_for_update().get(id=slot.id)
+                
+                if locked_slot.is_booked:
+                    return {
+                        "message": "I'm sorry, that slot was just booked by someone else. Please choose another time.",
+                        "action_executed": False,
+                        "data": {},
+                    }
+
                 appointment = Appointment.objects.create(
                     doctor=doctor,
-                    slot=slot,
+                    slot=locked_slot,
                     user=user.id if user else None,
                     patient_name=patient_name,
                     patient_phone=patient_phone,
-                    start_time=slot.start_time,
-                    end_time=slot.end_time,
+                    start_time=locked_slot.start_time,
+                    end_time=locked_slot.end_time,
+                    status='booked',
                 )
-                slot.is_booked = True
-                slot.save()
+                locked_slot.is_booked = True
+                locked_slot.save()
+
+            # Send notification outside the atomic block
+            try:
+                from appointments.views import notify_appointment_change
+                title = "Appointment Booked Successfully"
+                msg = (
+                    f"Hello {patient_name},\n\n"
+                    f"Your appointment with Dr. {doctor.first_name} {doctor.last_name} has been booked for "
+                    f"{date_value} at {ToolRouter._human_time(time_value)}.\n\n"
+                    f"Thank you for using VaidyaGo!"
+                )
+                notify_appointment_change(appointment, title, msg)
+            except Exception as e:
+                logger.warning(f"Failed to send booking notification: {e}")
 
             return {
                 "message": (
                     f"Your appointment with Dr. {doctor.first_name} {doctor.last_name} has been booked for "
-                    f"{date_value} at {ToolRouter._human_time(time_value)}."
+                    f"{patient_name} on {date_value} at {ToolRouter._human_time(time_value)}."
                 ),
                 "action_executed": True,
-                "data": {"appointment_id": appointment.id, "doctor_id": doctor.id, "slot_id": slot.id},
+                "data": {
+                    "appointment_id": appointment.id,
+                    "doctor_id": doctor.id,
+                    "slot_id": locked_slot.id,
+                    "patient_name": patient_name,
+                    "patient_phone": patient_phone,
+                    "date": date_value,
+                    "time": time_value
+                },
             }
         except Exception as exc:
             logger.error(f"Booking failed: {exc}")
@@ -171,10 +212,13 @@ class ToolRouter:
                 "data": {},
             }
 
+        human_slots = [ToolRouter._human_time(s) for s in slots]
+        date_str = date_value if date_value else "the upcoming days"
+
         return {
             "message": (
-                f"Available slots for Dr. {doctor.first_name} {doctor.last_name} "
-                f"on {date_value or 'the selected date'}: {', '.join(slots)}."
+                f"Dr. {doctor.first_name} {doctor.last_name} is available on {date_str} at these times: "
+                f"{', '.join(human_slots)}. Which one would you like to book?"
             ),
             "action_executed": False,
             "data": {"available_slots": slots, "doctor_id": doctor.id, "date": date_value},
@@ -382,13 +426,18 @@ class ToolRouter:
             return None
 
         time_str = str(time_input).strip().lower()
-        match = re.match(r"^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$", time_str)
+        
+        # Handle HH:MM:SS by stripping seconds if present
+        if re.match(r"^\d{1,2}:\d{2}:\d{2}$", time_str):
+            time_str = ":".join(time_str.split(":")[:2])
+
+        match = re.match(r"^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)?$", time_str)
         if not match:
             return None
 
         hour = int(match.group(1))
         minute = int(match.group(2) or 0)
-        period = match.group(3)
+        period = match.group(4) # Group 3 is seconds now if present, but we stripped them above or they are optional here
 
         if period:
             if period == "pm" and hour != 12:
@@ -436,19 +485,57 @@ class ToolRouter:
     def _extract_patient_name(user):
         if not user:
             return None
-        full_name = getattr(user, "get_full_name", None)
-        if callable(full_name):
-            return full_name() or getattr(user, "username", None)
-        return getattr(user, "username", None)
+        
+        # Try to get full name
+        full_name = None
+        if hasattr(user, "get_full_name") and callable(user.get_full_name):
+            full_name = user.get_full_name()
+        
+        if not full_name:
+            # Fallback to first_name and last_name manually
+            first_name = getattr(user, "first_name", "")
+            last_name = getattr(user, "last_name", "")
+            if first_name or last_name:
+                full_name = f"{first_name} {last_name}".strip()
+        
+        if not full_name:
+            # Fallback to username
+            full_name = getattr(user, "username", None)
+            
+        return full_name
 
     @staticmethod
     def _extract_patient_phone(user):
         if not user:
             return None
+        
+        # 1. Check direct 'phone' field on user
+        phone = getattr(user, "phone", None)
+        if phone:
+            return phone
+            
+        # 2. Check 'profile' related object
         try:
-            return getattr(user.profile, "phone", None)
+            profile = getattr(user, "profile", None)
+            if profile:
+                return getattr(profile, "phone_number", None) or getattr(profile, "phone", None)
         except Exception:
-            return None
+            pass
+            
+        # 3. Check 'userprofile' or 'accounts_userprofile_set'
+        for attr in ["userprofile", "accounts_userprofile_set"]:
+            try:
+                related = getattr(user, attr, None)
+                if related:
+                    # If it's a manager (ForeignKey), get first()
+                    if hasattr(related, "first"):
+                        related = related.first()
+                    if related:
+                        return getattr(related, "phone", None) or getattr(related, "phone_number", None)
+            except Exception:
+                continue
+            
+        return None
 
     @staticmethod
     def get_available_tools(category=None):

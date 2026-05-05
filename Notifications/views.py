@@ -24,11 +24,12 @@ from Notifications.services.notifications_service import send_notification
 @permission_classes([IsAuthenticated])
 def test_notification(request):
     user = request.user
+    phone = getattr(user, 'phone', None)
 
     send_notification(
         user=user,
         email=user.email,
-        phone="YOUR_PHONE_NUMBER"
+        phone=phone
     )
 
-    return Response({"message": "Notification sent"})
+    return Response({"message": "Notification sent successfully"})

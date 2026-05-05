@@ -26,7 +26,25 @@ class DoctorSlotSerializer(serializers.ModelSerializer):
 from .models import TimeSlot
 
 class TimeSlotSerializer(serializers.ModelSerializer):
+    appointment_details = serializers.SerializerMethodField()
+
     class Meta:
         model = TimeSlot
-        fields = ['id', 'doctor', 'start_time', 'end_time', 'is_booked']
-        read_only_fields = ['id', 'is_booked']  # ID is auto, booking status is handled elsewhere
+        fields = ['id', 'doctor', 'start_time', 'end_time', 'is_booked', 'appointment_details']
+        read_only_fields = ['id', 'is_booked']
+
+    def get_appointment_details(self, obj):
+        if not obj.is_booked:
+            return None
+        
+        from appointments.models import Appointment
+        appointment = Appointment.objects.filter(slot=obj).first()
+        if appointment:
+            return {
+                "id": appointment.id,
+                "patient_name": appointment.patient_name,
+                "patient_phone": appointment.patient_phone,
+                "status": appointment.status,
+                "booked_by": "Vado Chatbot" if appointment.status == "booked" else "Manual Booking"
+            }
+        return None

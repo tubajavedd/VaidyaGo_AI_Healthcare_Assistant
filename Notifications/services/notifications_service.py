@@ -6,7 +6,7 @@ from ..services.templates import appointment_email_template
 
 
 def send_notification(user, email, phone):
-    data = appointment_template(user.username, "Tomorrow")
+    data = appointment_email_template(user.username, "Tomorrow")
 
     # Push
     devices = Device.objects.filter(user=user)
@@ -14,7 +14,8 @@ def send_notification(user, email, phone):
         send_push_notification(device.fcm_token, data["title"], data["body"])
 
     # Email
-    send_email(data["title"], email, {"message": data["body"]})
+    send_email(data["title"], email, data["body"])
 
     # SMS
-    send_sms(phone, data["body"])
+    if phone:
+        send_sms(phone, data["body"])

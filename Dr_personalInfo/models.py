@@ -47,5 +47,8 @@ class DoctorPersonalInfo(models.Model):
 
     rejected_reason = models.CharField(max_length=255 ,choices=REJECTION_CHOICES, null = True,blank=True)
     rejected_message = models.TextField(null=True,blank=True)
-    rejeted_file = models.FileField(upload_to='rejected/',null=True,blank=True)
+    rejected_file = models.FileField(upload_to='rejected/',null=True,blank=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 

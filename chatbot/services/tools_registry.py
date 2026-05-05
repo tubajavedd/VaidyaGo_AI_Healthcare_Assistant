@@ -11,16 +11,16 @@ TOOLS_REGISTRY = {
         "endpoint": "/api/appointments/",
         "method": "POST",
         "parameters": {
-            "slot": {"type": "integer", "description": "ID of the available time slot (MUST get slots first using get_doctor_slots action)", "required": True},
+            "slot": {"type": "integer", "description": "ID of the available time slot (optional if date and time are provided)", "required": False},
             "patient_name": {"type": "string", "description": "Name of the patient (auto-filled from user profile if not provided)", "required": False},
             "patient_phone": {"type": "string", "description": "Phone number of the patient (auto-filled from user profile if not provided)", "required": False},
             "user": {"type": "integer", "description": "User ID", "required": False},
-            "doctor_id": {"type": "integer", "description": "ID of the doctor (used to get slots)", "required": False},
-            "doctor_name": {"type": "string", "description": "Name of the doctor (e.g., Dr. Smith) - used to get available slots", "required": False},
-            "date": {"type": "string", "description": "Appointment date (YYYY-MM-DD or day name like 'monday') - used to get slots", "required": False},
-            "time": {"type": "string", "description": "Appointment time (HH:MM format) - used to select from available slots", "required": False}
+            "doctor_id": {"type": "integer", "description": "ID of the doctor", "required": False},
+            "doctor_name": {"type": "string", "description": "Name of the doctor (e.g., Dr. Smith)", "required": False},
+            "date": {"type": "string", "description": "Appointment date (YYYY-MM-DD or day name like 'monday')", "required": False},
+            "time": {"type": "string", "description": "Appointment time (HH:MM format)", "required": False}
         },
-        "notes": "IMPORTANT: You MUST first use 'get_doctor_slots' to get available slots, then use the slot ID from the response to book. Patient info is auto-filled from user profile if available.",
+        "notes": "You can book an appointment directly by providing doctor_name, date, and time. If you don't have the exact time, use 'get_doctor_slots' first. Patient info is auto-filled from user profile.",
         "response_format": {
             "success": True,
             "message": "Appointment booked",

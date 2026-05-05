@@ -143,9 +143,31 @@ class DoctorBookedSlotsAPI(APIView):
 
 class DoctorAllSlotsAPI(APIView):
     def get(self, request, doctor_id):
-        slots = TimeSlot.objects.filter(doctor_id=doctor_id)
-        serializer = TimeSlotSerializer(slots, many=True)
+        date_param = request.query_params.get('date')
+        
+        queryset = TimeSlot.objects.filter(doctor_id=doctor_id)
+        
+        if date_param:
+            queryset = queryset.filter(start_time__date=date_param)
+            
+        serializer = TimeSlotSerializer(queryset, many=True)
         return Response({
             "doctor_id": doctor_id,
+            "date": date_param,
             "slots": serializer.data
         })
+
+
+class TimeSlotCreateAPI(APIView):
+    """
+    Allow doctor to manually add a single available time slot
+    """
+    def post(self, request):
+        serializer = TimeSlotSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "message": "Time slot created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
