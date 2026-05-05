@@ -24,9 +24,25 @@ class DoctorPersonalInfoDetailView(generics.RetrieveUpdateAPIView):
 class ApprovedDoctorListView(generics.ListAPIView):
     """
     API to fetch all registered doctors who are approved by the admin.
+    Supports filtering via query parameters:
+    - ?department=...
+    - ?specialization=...
     """
-    queryset = DoctorPersonalInfo.objects.filter(status='approved').select_related('professional_info')
     serializer_class = DoctorListSerializer
     authentication_classes = [BasicAuthentication]
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = DoctorPersonalInfo.objects.filter(status='approved').select_related('professional_info')
+        
+        department = self.request.query_params.get('department')
+        specialization = self.request.query_params.get('specialization')
+
+        if department:
+            queryset = queryset.filter(professional_info__department__iexact=department)
+        
+        if specialization:
+            queryset = queryset.filter(professional_info__specialization__iexact=specialization)
+            
+        return queryset
 

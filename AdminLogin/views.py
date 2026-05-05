@@ -1,3 +1,4 @@
+import os
 import jwt
 import json
 import phonenumbers
@@ -12,7 +13,7 @@ from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
-from django.core.mail import send_mail
+from django.core.mail import send_mail, EmailMessage
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAdminUser, AllowAny
@@ -23,7 +24,8 @@ from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .utils import generate_username_from_email, generate_otp
-from .models import Doctor, OTP
+from .models import Doctor, OTP, User
+from Notifications.models import Notification
 from .serializers import DoctorSerializer, AdminLoginSerializer
 from .permissions import IsAdmin
 from Dr_personalInfo.models import DoctorPersonalInfo
@@ -354,17 +356,25 @@ def approve_doctor(request, doctor_id):
     doctor.save()
 
     if doctor.email:
-        send_mail(
-            subject="Application Approved",
-            message="Your doctor profile has been approved. You can now access the system.",
-            from_email=getattr(
-                settings,
-                "DEFAULT_FROM_EMAIL",
-                None
-            ),
-            recipient_list=[doctor.email],
-            fail_silently=True,
+        email_subject = "Application Approved"
+        email_body = "Your doctor profile has been approved. You can now access the system."
+        
+        email = EmailMessage(
+            subject=email_subject,
+            body=email_body,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            to=[doctor.email],
         )
+        email.send(fail_silently=True)
+
+        # Send in-app notification if user exists
+        user = User.objects.filter(email=doctor.email).first()
+        if user:
+            Notification.objects.create(
+                user=user,
+                title="Application Approved",
+                message="Your doctor profile has been approved. You can now access the system."
+            )
 
     return Response({"message": "Doctor approved"})
 
@@ -401,23 +411,40 @@ def reject_doctor(request, doctor_id):
     doctor.save()
 
     if doctor.email:
-        send_mail(
-            subject="Application Rejected",
-            message=f"""
+        email_subject = "Application Rejected"
+        email_body = f"""
 Your application has been rejected.
 
 Reason: {reason}
 
 Message: {message if message else "No additional message"}
-            """,
-            from_email=getattr(
-                settings,
-                "DEFAULT_FROM_EMAIL",
-                None
-            ),
-            recipient_list=[doctor.email],
-            fail_silently=False,
+        """
+        
+        email = EmailMessage(
+            subject=email_subject,
+            body=email_body,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            to=[doctor.email],
         )
+
+        if doctor.rejected_file:
+            try:
+                # Ensure the file pointer is at the start if it was read before
+                doctor.rejected_file.seek(0)
+                email.attach(os.path.basename(doctor.rejected_file.name), doctor.rejected_file.read())
+            except Exception:
+                pass
+        
+        email.send(fail_silently=True)
+
+        # Send in-app notification if user exists
+        user = User.objects.filter(email=doctor.email).first()
+        if user:
+            Notification.objects.create(
+                user=user,
+                title="Application Rejected",
+                message=f"Your application has been rejected. Reason: {reason}"
+            )
 
     return Response({
         "message": "Doctor rejected and notified"
