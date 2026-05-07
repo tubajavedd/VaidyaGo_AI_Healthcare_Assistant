@@ -2,15 +2,15 @@ from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.authentication import BasicAuthentication
 from django.shortcuts import get_object_or_404
-
+from rest_framework.decorators import api_view , authentication_classes,permission_classes
 from .models import DoctorDocument
 from .serializers import DoctorDocumentSerializer
 from Dr_personalInfo.models import DoctorPersonalInfo
-
-from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 @api_view(['POST'])
+@authentication_classes([])   # disables auth
+@permission_classes([AllowAny])
 def final_submit(request, doctor_id):
     doctor = get_object_or_404(DoctorPersonalInfo, id=doctor_id)
 

@@ -418,6 +418,141 @@ TOOLS_REGISTRY = {
             "success": True,
             "message": "Profile updated"
         }
+    },
+
+    "upload_prescription_document": {
+        "name": "upload_prescription_document",
+        "description": "Upload a medical prescription or document for OCR extraction",
+        "category": "prescriptions",
+        "endpoint": "/api/chatbot/upload-prescription/",
+        "method": "POST",
+        "parameters": {
+            "document": {"type": "file", "description": "Medical document file (image or PDF)"}
+        },
+        "response_format": {
+            "success": True,
+            "prescription_id": "integer",
+            "document_type": "string",
+            "doctor_name": "string",
+            "hospital_name": "string",
+            "patient_name": "string",
+            "medicines": [
+                {
+                    "name": "string",
+                    "dosage": "string",
+                    "frequency": "string",
+                    "duration_days": "integer",
+                    "instructions": "string"
+                }
+            ],
+            "test_results": [],
+            "findings": [],
+            "recommendations": []
+        }
+    },
+
+    "get_prescription_details": {
+        "name": "get_prescription_details",
+        "description": "Get detailed information about a specific prescription",
+        "category": "prescriptions",
+        "endpoint": "/api/prescriptions/{prescription_id}/details/",
+        "method": "GET",
+        "parameters": {
+            "prescription_id": {"type": "integer", "description": "ID of the prescription"}
+        },
+        "response_format": {
+            "prescription": {
+                "id": "integer",
+                "doctor_name": "string",
+                "hospital_name": "string",
+                "patient_name": "string",
+                "prescription_date": "string",
+                "medicines": "array",
+                "status": "string"
+            }
+        }
+    },
+
+    "list_prescription_documents": {
+        "name": "list_prescription_documents",
+        "description": "Get list of all uploaded prescription documents",
+        "category": "prescriptions",
+        "endpoint": "/api/prescriptions/list/",
+        "method": "GET",
+        "parameters": {},
+        "response_format": {
+            "prescriptions": [
+                {
+                    "id": "integer",
+                    "doctor_name": "string",
+                    "status": "string",
+                    "created_at": "datetime",
+                    "medicines_count": "integer"
+                }
+            ]
+        }
+    },
+
+    "extract_prescription_medicines": {
+        "name": "extract_prescription_medicines",
+        "description": "Extract and get all medicines from a prescription document",
+        "category": "prescriptions",
+        "endpoint": "/api/prescriptions/{prescription_id}/medicines/",
+        "method": "GET",
+        "parameters": {
+            "prescription_id": {"type": "integer", "description": "ID of the prescription"}
+        },
+        "response_format": {
+            "medicines": [
+                {
+                    "name": "string",
+                    "dosage": "string",
+                    "frequency": "string",
+                    "duration_days": "integer",
+                    "instructions": "string"
+                }
+            ],
+            "total_count": "integer"
+        }
+    },
+
+    "get_prescription_lab_results": {
+        "name": "get_prescription_lab_results",
+        "description": "Extract and get lab test results from a medical document",
+        "category": "prescriptions",
+        "endpoint": "/api/prescriptions/{prescription_id}/lab-results/",
+        "method": "GET",
+        "parameters": {
+            "prescription_id": {"type": "integer", "description": "ID of the prescription document"}
+        },
+        "response_format": {
+            "test_results": [
+                {
+                    "test_name": "string",
+                    "result": "string",
+                    "unit": "string",
+                    "reference_range": "string",
+                    "status": "string"
+                }
+            ]
+        }
+    },
+
+    "get_doctor_info_from_prescription": {
+        "name": "get_doctor_info_from_prescription",
+        "description": "Extract doctor and hospital information from a prescription",
+        "category": "prescriptions",
+        "endpoint": "/api/prescriptions/{prescription_id}/doctor-info/",
+        "method": "GET",
+        "parameters": {
+            "prescription_id": {"type": "integer", "description": "ID of the prescription"}
+        },
+        "response_format": {
+            "doctor_name": "string",
+            "hospital_name": "string",
+            "doctor_phone": "string",
+            "hospital_address": "string"
+        }
     }
 }
 

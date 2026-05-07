@@ -48,6 +48,25 @@ class ToolRouter:
         if action == "get_prescriptions":
             return ToolRouter._get_prescriptions(user)
 
+        if action == "list_prescription_documents" or action == "list_prescriptions":
+            return ToolRouter._list_prescription_documents(user)
+
+        if action == "get_prescription_details":
+            return ToolRouter._get_prescription_details(user, data)
+
+        if action == "extract_prescription_medicines":
+            return ToolRouter._extract_prescription_medicines(user, data)
+
+        if action == "get_prescription_lab_results":
+            return ToolRouter._get_prescription_lab_results(user, data)
+
+        if action == "get_doctor_info_from_prescription":
+            return ToolRouter._get_doctor_info_from_prescription(user, data)
+
+        if action == "document_inquiry":
+            # Handle document inquiry - fetch document details
+            return ToolRouter._list_prescription_documents(user)
+
         if action == "get_notifications":
             return {
                 "message": "I can show your notifications, but no notifications endpoint is configured yet.",
@@ -404,6 +423,323 @@ class ToolRouter:
             }
 
     @staticmethod
+    def _list_prescription_documents(user):
+        """Fetch and list all prescription documents for the user"""
+        if not user:
+            return {
+                "message": "Please log in to view your prescriptions.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        try:
+            from prescription_management.models import Prescription
+            prescriptions = Prescription.objects.filter(patient=user).order_by('-created_at')
+            
+            if not prescriptions.exists():
+                return {
+                    "message": "📋 You haven't uploaded any prescriptions yet. Upload one and I can help you understand it!",
+                    "action_executed": True,
+                    "data": {"prescriptions": []},
+                }
+
+            presc_list = []
+            structured_data = []
+            
+            for p in prescriptions:
+                meds_count = p.prescribed_medicines.count() if hasattr(p, 'prescribed_medicines') else 0
+                date_str = p.prescription_date.strftime("%Y-%m-%d") if p.prescription_date else p.created_at.strftime("%Y-%m-%d")
+                
+                presc_list.append(
+                    f"📄 Prescription #{p.id}\n"
+                    f"   Doctor: {p.doctor_name or 'Unknown'}\n"
+                    f"   Hospital: {p.hospital_name or 'Not specified'}\n"
+                    f"   Date: {date_str}\n"
+                    f"   Medicines: {meds_count}\n"
+                    f"   Status: {p.status}"
+                )
+                
+                structured_data.append({
+                    "id": p.id,
+                    "doctor_name": p.doctor_name,
+                    "hospital_name": p.hospital_name,
+                    "prescription_date": date_str,
+                    "medicines_count": meds_count,
+                    "status": p.status,
+                    "created_at": p.created_at.strftime("%Y-%m-%d %H:%M")
+                })
+
+            message = "📋 Here are your uploaded prescriptions:\n\n" + "\n\n".join(presc_list)
+            
+            return {
+                "message": message,
+                "action_executed": True,
+                "data": {"prescriptions": structured_data}
+            }
+        except Exception as e:
+            logger.error(f"Failed to list prescriptions: {e}")
+            return {
+                "message": "I encountered an error while fetching your prescriptions.",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _get_prescription_details(user, data):
+        """Get detailed information about a specific prescription"""
+        if not user:
+            return {
+                "message": "Please log in to view prescription details.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        prescription_id = data.get('prescription_id')
+        
+        try:
+            from prescription_management.models import Prescription, PrescribedMedicine
+            
+            # If no prescription_id provided, fetch the most recent one
+            if not prescription_id:
+                prescription = Prescription.objects.filter(patient=user).order_by('-created_at').first()
+                if not prescription:
+                    return {
+                        "message": "📋 You haven't uploaded any prescriptions yet. Upload one and I can help you understand it!",
+                        "action_executed": False,
+                        "data": {},
+                    }
+            else:
+                prescription = Prescription.objects.get(id=prescription_id, patient=user)
+            
+            medicines = PrescribedMedicine.objects.filter(prescription=prescription)
+            medicines_list = [
+                {
+                    "name": m.name,
+                    "dosage": m.dosage,
+                    "frequency": m.frequency,
+                    "duration_days": m.duration_days,
+                    "instructions": m.instructions
+                }
+                for m in medicines
+            ]
+            
+            prescription_date = prescription.prescription_date.strftime("%Y-%m-%d") if prescription.prescription_date else "Unknown"
+            
+            details_text = (
+                f"💊 Prescription Details (ID: {prescription.id})\n\n"
+                f"👨‍⚕️ Doctor: {prescription.doctor_name or 'Not specified'}\n"
+                f"🏥 Hospital: {prescription.hospital_name or 'Not specified'}\n"
+                f"👤 Patient: {prescription.extracted_patient_name or 'Not specified'}\n"
+                f"📅 Date: {prescription_date}\n"
+                f"📊 Status: {prescription.status}\n\n"
+                f"💊 Medicines ({len(medicines_list)}):\n"
+            )
+            
+            for i, med in enumerate(medicines_list, 1):
+                details_text += (
+                    f"\n{i}. {med['name']}\n"
+                    f"   Dosage: {med['dosage']}\n"
+                    f"   Frequency: {med['frequency']}\n"
+                    f"   Duration: {med['duration_days']} days\n"
+                    f"   Instructions: {med['instructions']}"
+                )
+            
+            return {
+                "message": details_text,
+                "action_executed": True,
+                "data": {
+                    "prescription": {
+                        "id": prescription.id,
+                        "doctor_name": prescription.doctor_name,
+                        "hospital_name": prescription.hospital_name,
+                        "patient_name": prescription.extracted_patient_name,
+                        "date": prescription_date,
+                        "status": prescription.status,
+                        "medicines": medicines_list
+                    }
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get prescription details: {e}")
+            return {
+                "message": f"I couldn't find that prescription or encountered an error.",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _extract_prescription_medicines(user, data):
+        """Extract and list medicines from a prescription"""
+        if not user:
+            return {
+                "message": "Please log in to view your medicines.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        prescription_id = data.get('prescription_id')
+        
+        try:
+            from prescription_management.models import Prescription, PrescribedMedicine
+            
+            # If no prescription_id provided, fetch the most recent one
+            if not prescription_id:
+                prescription = Prescription.objects.filter(patient=user).order_by('-created_at').first()
+                if not prescription:
+                    return {
+                        "message": "📋 You haven't uploaded any prescriptions yet. Upload one and I can help you understand it!",
+                        "action_executed": False,
+                        "data": {},
+                    }
+            else:
+                prescription = Prescription.objects.get(id=prescription_id, patient=user)
+            
+            medicines = PrescribedMedicine.objects.filter(prescription=prescription)
+            
+            if not medicines.exists():
+                return {
+                    "message": "No medicines found in this prescription.",
+                    "action_executed": True,
+                    "data": {"medicines": []}
+                }
+            
+            medicines_text = f"💊 Medicines from Prescription #{prescription.id}:\n\n"
+            medicines_list = []
+            
+            for i, med in enumerate(medicines, 1):
+                medicines_text += (
+                    f"{i}. {med.name}\n"
+                    f"   💊 Dosage: {med.dosage}\n"
+                    f"   ⏰ Frequency: {med.frequency}\n"
+                    f"   📅 Duration: {med.duration_days} days\n"
+                    f"   📝 Instructions: {med.instructions}\n\n"
+                )
+                
+                medicines_list.append({
+                    "id": med.id,
+                    "name": med.name,
+                    "dosage": med.dosage,
+                    "frequency": med.frequency,
+                    "duration_days": med.duration_days,
+                    "instructions": med.instructions
+                })
+            
+            return {
+                "message": medicines_text,
+                "action_executed": True,
+                "data": {
+                    "prescription_id": prescription_id,
+                    "medicines": medicines_list,
+                    "count": len(medicines_list)
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to extract medicines: {e}")
+            return {
+                "message": "I encountered an error while extracting medicines.",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _get_prescription_lab_results(user, data):
+        """Extract and display lab results from a prescription/document"""
+        if not user:
+            return {
+                "message": "Please log in to view lab results.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        prescription_id = data.get('prescription_id')
+        
+        try:
+            from prescription_management.models import Prescription
+            
+            # If no prescription_id provided, fetch the most recent one
+            if not prescription_id:
+                prescription = Prescription.objects.filter(patient=user).order_by('-created_at').first()
+                if not prescription:
+                    return {
+                        "message": "📋 You haven't uploaded any prescriptions yet. Upload one and I can help you understand it!",
+                        "action_executed": False,
+                        "data": {},
+                    }
+            else:
+                prescription = Prescription.objects.get(id=prescription_id, patient=user)
+            
+            # Extract lab results info - would be stored in prescription model
+            message = (
+                f"📊 Lab Results for Prescription #{prescription.id}\n\n"
+                f"Lab results extraction depends on document type.\n"
+                f"If this is a lab report, the results would have been extracted during upload.\n\n"
+                f"Document uploaded: {prescription.created_at.strftime('%Y-%m-%d %H:%M')}"
+            )
+            
+            return {
+                "message": message,
+                "action_executed": True,
+                "data": {"prescription_id": prescription.id}
+            }
+        except Exception as e:
+            logger.error(f"Failed to get lab results: {e}")
+            return {
+                "message": "I couldn't retrieve the lab results.",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
+    def _get_doctor_info_from_prescription(user, data):
+        """Extract doctor and hospital information from a prescription"""
+        if not user:
+            return {
+                "message": "Please log in to view doctor information.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        prescription_id = data.get('prescription_id')
+        
+        try:
+            from prescription_management.models import Prescription
+            
+            # If no prescription_id provided, fetch the most recent one
+            if not prescription_id:
+                prescription = Prescription.objects.filter(patient=user).order_by('-created_at').first()
+                if not prescription:
+                    return {
+                        "message": "📋 You haven't uploaded any prescriptions yet. Upload one and I can help you understand it!",
+                        "action_executed": False,
+                        "data": {},
+                    }
+            else:
+                prescription = Prescription.objects.get(id=prescription_id, patient=user)
+            
+            doctor_info = (
+                f"👨‍⚕️ Doctor Information (Prescription #{prescription.id})\n\n"
+                f"Doctor Name: {prescription.doctor_name or 'Not specified'}\n"
+                f"🏥 Hospital/Clinic: {prescription.hospital_name or 'Not specified'}\n"
+            )
+            
+            return {
+                "message": doctor_info,
+                "action_executed": True,
+                "data": {
+                    "prescription_id": prescription.id,
+                    "doctor_name": prescription.doctor_name,
+                    "hospital_name": prescription.hospital_name
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to get doctor info: {e}")
+            return {
+                "message": "I couldn't retrieve the doctor information.",
+                "action_executed": False,
+                "data": {},
+            }
+
+    @staticmethod
     def _resolve_doctor(doctor_name, doctor_id):
         if doctor_id:
             try:
@@ -600,8 +936,14 @@ class ToolRouter:
                 "reschedule_appointment",
                 "list_appointments",
                 "get_prescriptions",
+                "list_prescription_documents",
+                "get_prescription_details",
+                "extract_prescription_medicines",
+                "get_prescription_lab_results",
+                "get_doctor_info_from_prescription",
+                "document_inquiry",
                 "get_notifications",
             ],
-            "count": 8,
+            "count": 14,
             "category": category,
         }
