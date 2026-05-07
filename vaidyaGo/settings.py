@@ -80,7 +80,7 @@ INSTALLED_APPS = [
     'updateLog_medication',
     'account_setting',
     'editProfile',
-
+    'prescription_management',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

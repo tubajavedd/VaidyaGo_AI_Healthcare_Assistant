@@ -2,8 +2,9 @@ from rest_framework import serializers
 
 
 class ChatRequestSerializer(serializers.Serializer):
-    message = serializers.CharField()
+    message = serializers.CharField(required=False, allow_blank=True)
     session_id = serializers.IntegerField(required=False)
+    document = serializers.FileField(required=False)
 
 
 class ChatResponseSerializer(serializers.Serializer):

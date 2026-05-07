@@ -6,6 +6,7 @@ from .views import (
     LoginHistoryView,
     DeactivateAccountView,
     RequestDataDeletionView,
+    SwitchLanguageView,
 )
 
 urlpatterns = [
@@ -14,5 +15,6 @@ urlpatterns = [
     path("toggle-2fa/", Toggle2FAView.as_view()),
     path("login-history/", LoginHistoryView.as_view()),
     path("deactivate-account/", DeactivateAccountView.as_view()),
-    path("request-data-deletion/",RequestDataDeletionView.as_view()),
+    path("request-data-deletion/", RequestDataDeletionView.as_view()),
+    path("switch-language/", SwitchLanguageView.as_view()),
 ]

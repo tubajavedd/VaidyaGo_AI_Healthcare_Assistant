@@ -31,6 +31,42 @@ class TodayScheduleView(APIView):
     def get(self, request):
         today = timezone.now().date()
 
+        # --- NEW: Auto-generate today's schedule from active prescription ---
+        from prescription_management.models import Prescription
+        active_p = Prescription.objects.filter(patient=request.user, status='active').order_by('-created_at').first()
+        if active_p:
+            active_p.update_status() # Ensure status is up-to-date
+            if active_p.status == 'active':
+                for med in active_p.medicines.all():
+                    # Check if schedule for this med already exists today
+                    if not Schedule.objects.filter(patient=request.user, medication_name=med.name, date=today).exists():
+                        # Generate for today
+                        freq = med.frequency.lower() if med.frequency else ''
+                        times = []
+                        if 'once' in freq or '1-0-0' in freq or '0-0-1' in freq:
+                            times = ['08:00:00'] if '1-0-0' in freq else ['20:00:00']
+                        elif 'twice' in freq or '1-0-1' in freq:
+                            times = ['08:00:00', '20:00:00']
+                        elif 'thrice' in freq or '1-1-1' in freq:
+                            times = ['08:00:00', '14:00:00', '20:00:00']
+                        else:
+                            times = ['09:00:00']
+                            
+                        freq_choice = 'Once Daily'
+                        if len(times) == 2: freq_choice = 'Twice Daily'
+                        elif len(times) == 3: freq_choice = 'Thrice Daily'
+                            
+                        for t in times:
+                            Schedule.objects.create(
+                                patient=request.user,
+                                medication_name=med.name,
+                                dosage=med.dosage or '',
+                                frequency=freq_choice,
+                                time=t,
+                                routine_type='Routine'
+                            )
+        # --------------------------------------------------------------------
+
         schedules = Schedule.objects.filter(
             patient=request.user,
             date=today,

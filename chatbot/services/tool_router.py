@@ -46,11 +46,7 @@ class ToolRouter:
             return ToolRouter._list_appointments(user)
 
         if action == "get_prescriptions":
-            return {
-                "message": "I can fetch your prescriptions, but this feature is not available yet.",
-                "action_executed": False,
-                "data": {},
-            }
+            return ToolRouter._get_prescriptions(user)
 
         if action == "get_notifications":
             return {
@@ -350,6 +346,62 @@ class ToolRouter:
             "action_executed": False,
             "data": {"appointments": appointment_list},
         }
+
+    @staticmethod
+    def _get_prescriptions(user):
+        if not user:
+            return {
+                "message": "Please log in to view your prescriptions.",
+                "action_executed": False,
+                "data": {},
+            }
+
+        try:
+            from prescription_management.models import Prescription
+            active_prescriptions = Prescription.objects.filter(patient=user).order_by('-created_at')
+            
+            if not active_prescriptions.exists():
+                return {
+                    "message": "You don't have any prescriptions on record.",
+                    "action_executed": True,
+                    "data": {"prescriptions": []},
+                }
+
+            presc_list = []
+            structured_data = []
+            
+            for p in active_prescriptions:
+                meds = p.medicines.all()
+                if meds.exists():
+                    meds_str = ", ".join([f"{m.name} ({m.dosage or 'unknown dosage'})" for m in meds])
+                else:
+                    meds_str = "No specific medicines parsed."
+                    
+                date_str = p.prescription_date.strftime("%Y-%m-%d") if p.prescription_date else p.created_at.strftime("%Y-%m-%d")
+                presc_list.append(f"- By Dr. {p.doctor_name or 'Unknown'} on {date_str}: {meds_str}")
+                
+                structured_data.append({
+                    "doctor_name": p.doctor_name,
+                    "date": date_str,
+                    "status": p.status,
+                    "medicines": [{"name": m.name, "dosage": m.dosage, "frequency": m.frequency} for m in meds]
+                })
+
+            message = "Here are your prescriptions:\n" + "\n".join(presc_list)
+            return {
+                "message": message,
+                "action_executed": True,
+                "data": {
+                    "prescriptions": structured_data
+                }
+            }
+        except Exception as e:
+            logger.error(f"Failed to fetch prescriptions: {e}")
+            return {
+                "message": "I encountered an error while fetching your prescriptions.",
+                "action_executed": False,
+                "data": {},
+            }
 
     @staticmethod
     def _resolve_doctor(doctor_name, doctor_id):

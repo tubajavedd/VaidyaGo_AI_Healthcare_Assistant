@@ -4,6 +4,7 @@ LLM Service wrapper that prefers Mistral API and falls back to simple local extr
 
 import json
 import logging
+import random
 
 from chatbot.services.mistral_service import MistralService
 from chatbot.services.smart_extractor import SmartIntentExtractor
@@ -11,6 +12,32 @@ from chatbot.services.vaidyago_knowledge_base import VaidyaGoKnowledge
 
 logger = logging.getLogger(__name__)
 
+INTERJECTIONS = {
+    "positive": ["🤩 ", "✨ ", "🌟 ", "✅ ", "👏 ", "🔥 ", "🚀 ", "🎯 "],
+    "relief": ["🎉 ", "🎊 ", "🙌 ", "🥳 ", "🎈 ", "🥂 "],
+    "surprise": ["🤯 ", "😲 ", "😮 ", "💥 ", "⚡ ", "⁉️ "],
+    "negative": ["😟 ", "😔 ", "🆘 ", "❌ ", "⚠️ ", "🩹 "],
+    "emotional": ["🥺 ", "❤️ ", "💖 ", "🙏 ", "🌈 ", "🌻 ", "🫂 "]
+}
+
+INTENT_EMOTION_MAP = {
+    "book_appointment": "relief",
+    "cancel_appointment": "negative",
+    "emergency": "negative",
+    "get_prescriptions": "positive",
+    "get_notifications": "positive",
+    "reschedule_appointment": "relief",
+    "chat": "positive",
+    "get_doctor_slots": "positive"
+}
+
+HEALTH_QUOTES = [
+    "Health is the greatest wealth.",
+    "A healthy outside starts from the inside.",
+    "Take care of your body. It's the only place you have to live.",
+    "Happiness is the highest form of health.",
+    "Keep your vitality. A life without health is like a river without water.",
+]
 
 class LLMService:
     """
@@ -19,6 +46,35 @@ class LLMService:
     """
 
     BACKENDS = ["mistral", "knowledge", "fallback"]
+
+    @staticmethod
+    def _add_personality(response_json: str) -> str:
+        """
+        Injects enthusiasm and quotes into the conversational message based on intent.
+        """
+        try:
+            data = json.loads(response_json)
+            message = data.get("message", "")
+            intent = data.get("intent", "chat")
+            
+            # Determine emotion category based on intent
+            emotion_category = INTENT_EMOTION_MAP.get(intent, "positive")
+            
+            # Add prefix sometimes
+            if random.random() < 0.4:
+                prefix = random.choice(INTERJECTIONS.get(emotion_category, INTERJECTIONS["positive"]))
+                # Check if message already starts with an interjection to avoid "Wow! Wow!"
+                if not any(message.startswith(p.strip()) for cat in INTERJECTIONS.values() for p in cat):
+                    message = prefix + message
+            
+            # Add quote sometimes
+            if random.random() < 0.2:
+                message += f"\n\n💡 Remember: \"{random.choice(HEALTH_QUOTES)}\""
+            
+            data["message"] = message
+            return json.dumps(data)
+        except Exception:
+            return response_json
 
     @staticmethod
     def generate_response(prompt: str) -> str:
@@ -39,14 +95,14 @@ class LLMService:
 
                 if result:
                     logger.info(f"Success using {backend}")
-                    return result
+                    return LLMService._add_personality(result)
 
             except Exception as e:
                 logger.warning(f"{backend} failed: {str(e)}")
                 continue
 
         logger.warning("All backends failed. Using fallback response")
-        return LLMService._try_fallback(prompt)
+        return LLMService._add_personality(LLMService._try_fallback(prompt))
 
     @staticmethod
     def _try_knowledge_base(prompt: str) -> str:

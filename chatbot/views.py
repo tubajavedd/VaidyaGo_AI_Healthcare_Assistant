@@ -25,9 +25,72 @@ def chat_view(request):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    message = serializer.validated_data["message"].strip()
+    message = serializer.validated_data.get("message", "").strip()
     session_id = serializer.validated_data.get("session_id")
+    documents = request.FILES.getlist("documents") or request.FILES.getlist("document")
     user = request.user if request.user and request.user.is_authenticated else None
+
+    # --- NEW: Handle Document/Prescription Upload via Chat ---
+    if documents and user:
+        from prescription_management.models import Prescription, PrescribedMedicine
+        from prescription_management.ocr_service import OCRService
+        from datetime import datetime
+        from prescription_management.views import PrescriptionUploadView
+        
+        uploader_view = PrescriptionUploadView()
+        success_count = 0
+        
+        for document in documents:
+            prescription = Prescription.objects.create(
+                patient=user,
+                file=document,
+                status='active'
+            )
+            
+            extracted_data = OCRService.extract_prescription_details(prescription.file.path)
+            if extracted_data:
+                prescription.doctor_name = extracted_data.get('doctor_name', '')
+                prescription.hospital_name = extracted_data.get('hospital_name', '')
+                p_date = extracted_data.get('prescription_date')
+                if p_date:
+                    try:
+                        prescription.prescription_date = datetime.strptime(p_date, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
+                prescription.extracted_patient_name = extracted_data.get('patient_name', '')
+                prescription.special_instructions = extracted_data.get('special_instructions', '')
+                prescription.save()
+                
+                medicines_data = extracted_data.get('medicines', [])
+                for med in medicines_data:
+                    pm = PrescribedMedicine.objects.create(
+                        prescription=prescription,
+                        name=med.get('name', 'Unknown'),
+                        dosage=med.get('dosage', ''),
+                        frequency=med.get('frequency', ''),
+                        duration_days=med.get('duration_days'),
+                        instructions=med.get('instructions', '')
+                    )
+                    uploader_view.generate_schedule(user, pm)
+                
+                prescription.update_status()
+                success_count += 1
+                
+        if success_count > 0:
+            reply_message = f"✅ I have successfully uploaded {success_count} prescription(s), extracted the details, and set up your medicine schedule!"
+        else:
+            reply_message = "⚠️ I uploaded the document(s), but I couldn't read the details automatically. You might need to update them manually."
+            
+        return Response({
+            "success": True,
+            "reply": reply_message,
+            "session_id": session_id or 0,
+            "intent": "upload_prescription",
+            "action": None,
+            "data": {},
+            "action_executed": True
+        })
+    # ---------------------------------------------------------
 
     response_data = ChatbotEngine.process(
         user=user,

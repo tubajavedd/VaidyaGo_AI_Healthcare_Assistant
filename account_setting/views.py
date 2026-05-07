@@ -159,3 +159,29 @@ class RequestDataDeletionView(APIView):
         return Response({
             "message": "Data deletion request submitted"
         })
+# ----------------------------
+# SWITCH LANGUAGE
+# ----------------------------
+class SwitchLanguageView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        settings, _ = AccountSettings.objects.get_or_create(
+            user=request.user,
+            defaults={
+                "full_name": request.user.get_full_name() or request.user.username,
+                "email": request.user.email,
+            }
+        )
+        
+        # Toggle between English and Hindi
+        if "Hindi" in settings.language:
+            settings.language = "English"
+        else:
+            settings.language = "Hindi"
+            
+        settings.save()
+        return Response({
+            "message": f"Language switched to {settings.language}",
+            "language": settings.language
+        })

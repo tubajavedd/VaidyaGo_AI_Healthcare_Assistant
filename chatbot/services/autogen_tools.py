@@ -108,6 +108,18 @@ class AutoGenToolWrapper:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_prescriptions",
+                    "description": "Get active and past prescriptions for the user",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {},
+                        "required": [],
+                    },
+                },
+            },
         ]
 
     @staticmethod

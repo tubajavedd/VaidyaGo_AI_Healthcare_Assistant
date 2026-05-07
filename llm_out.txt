@@ -1,0 +1,32 @@
+⚠️ It looks like the image or text you shared is quite unclear and hard to read—some parts are blurry or distorted. But I’ll do my best to extract what I can! Here’s what I could make out from the **lab report** or **prescription** you shared:
+
+---
+
+### **Extracted Details (from what’s readable):**
+🩺 **Patient Name:** Mrs. Bushra Sayyad
+🏥 **Type:** Likely a **hematology report** (blood test)
+📅 **Date:** Possibly **25th November** (year not clear — "Novae LED" may refer to November)
+🔬 **Test Results (Partial):**
+- **Hb (Hemoglobin):** ~10.0 g/dL *(low — may indicate anemia)*
+- **RBC (Red Blood Cells):** Not clearly readable
+- **PCV / HCT:** Not readable
+- **MCV (Mean Corpuscular Volume):** 93.0 fL *(normal range: 80–100)*
+- **MCH:** 30.0 pg *(normal)*
+- **MCHC:** 33.0 g/dL *(slightly low)*
+- **Platelet Count (Plt):** Not readable
+- **WBC (White Blood Cells):** 9.30 × 10³/µL *(normal range: 4–11)*
+- **Differential Count (Partial):**
+  - **Lymphocytes (Lymph):** 2.00 × 10³/µL
+  - **Eosinophils (Eos):** 6.30% *(slightly elevated — could indicate allergy or infection)*
+  - **Basophils (Baso):** 0.30%
+  - **Monocytes (Mono):** 7.30% *(slightly high — may suggest recovery from infection or inflammation)*
+
+📝 **Notes:**
+- The report mentions **"Not for Medico-Legal Use"**
+- Some values like **RBC, PCV, Platelets** are not readable due to blur
+- **"UST" or "SET"** might be hospital/lab name or location (not clear)
+
+---
+
+### What Should You Do?
+💡 **This looks like a blood report with slightly low hemoglobin and elevated eosinophils.** It’s best to:
