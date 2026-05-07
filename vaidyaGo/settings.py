@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'account_setting',
     'editProfile',
     'prescription_management',
+    'SymptomChecker',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

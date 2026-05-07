@@ -40,5 +40,6 @@ urlpatterns = [
     path("api/", include("account_setting.urls")),
     path('profile/',include('editProfile.urls')),
     path('api/', include('prescription_management.urls')),
+    path('api/symptomchecker/', include('SymptomChecker.urls')),
 
 ]
