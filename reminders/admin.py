@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import FCMToken, Reminder
 
-# Register your models here.
+admin.site.register(FCMToken)
+admin.site.register(Reminder)

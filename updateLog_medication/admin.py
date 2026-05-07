@@ -1,3 +1,5 @@
 from django.contrib import admin
+from .models import AccountSettings, UpdateLog
 
-# Register your models here.
+admin.site.register(AccountSettings)
+admin.site.register(UpdateLog)

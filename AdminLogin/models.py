@@ -17,6 +17,9 @@ class Address(models.Model):
     city = models.CharField(max_length=100)
     pincode = models.CharField(max_length=10)
 
+    class Meta:
+        verbose_name_plural = "Addresses"
+
 class Profile(models.Model):
     POST_CHOICES = (
         ('admin', 'Admin'),

@@ -1,6 +1,6 @@
-# Tasks
-
-- [ ] Expand VaidyaGoKnowledge with new categories (Symptoms, Emergency, etc.)
-- [ ] Enhance LLMService fallback logic to detect new categories
-- [ ] Update PromptService system prompt with new protocols
-- [ ] Verify with stress test cases (Postman)
+- [ ] Update `vaidyaGo/settings.py` (Set `ALLOW_ADMIN_SIGNUP = False`, add `ADMIN_EMAIL`)
+- [ ] Update `AdminLogin/serializers.py` (Restrict admin usertype in signup)
+- [ ] Update `AdminLogin/views.py` (Block admin signup, enforce admin role in login)
+- [ ] Update `AdminLogin/permissions.py` (Enforce admin email check)
+- [ ] Create `ensure_admin.py` and run it to set up the admin user
+- [ ] Verify changes

@@ -28,7 +28,9 @@ class AdminSignupSerializer(serializers.ModelSerializer):
     
 
     def validate_usertype(self, value):
-        if value not in ['patient', 'admin', 'doctor']:
+        if value == 'admin':
+            raise serializers.ValidationError("Admin signup is not allowed.")
+        if value not in ['patient', 'doctor']:
            raise serializers.ValidationError("Invalid usertype")
         return value
 

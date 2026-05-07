@@ -99,7 +99,13 @@ def admin_signup(request):
     confirm_password = data.get("confirm_password")
 
     # validate usertype
-    if usertype not in ["patient", "admin", "doctor"]:
+    if usertype == "admin":
+        return JsonResponse(
+            {"error": "Admin signup is not allowed"},
+            status=403
+        )
+
+    if usertype not in ["patient", "doctor"]:
         return JsonResponse(
             {"error": "Invalid usertype"},
             status=400
@@ -214,21 +220,29 @@ class AdminLoginView(APIView):
         user = serializer.validated_data["user"]
 
         refresh = RefreshToken.for_user(user)
+        access_token = refresh.access_token
+        
+        # Enforce admin role for specific email
+        if user.email == getattr(settings, "ADMIN_EMAIL", None):
+            refresh["role"] = "ADMIN"
+            access_token["role"] = "ADMIN"
+        else:
+            refresh["role"] = user.role
+            access_token["role"] = user.role
 
-        # custom refresh token claims
-        refresh["role"] = user.role
         refresh["email"] = user.email
         refresh["username"] = user.username
-
-        access_token = refresh.access_token
-        access_token["role"] = user.role
         access_token["email"] = user.email
         access_token["username"] = user.username
+
+        role = user.role
+        if user.email == getattr(settings, "ADMIN_EMAIL", None):
+            role = "ADMIN"
 
         return Response({
             "access": str(access_token),
             "refresh": str(refresh),
-            "role": user.role,
+            "role": role,
             "username": user.username,
             "message": "Login successful"
         }, status=status.HTTP_200_OK)
