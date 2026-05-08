@@ -202,7 +202,7 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 ALLOW_ADMIN_SIGNUP = False
-ADMIN_EMAIL = "khanadiba9746@gmail.com"
+ADMIN_EMAIL = "javedtuba1@gmail.com"
 
 
 CORS_ALLOW_ALL_ORIGINS = True
