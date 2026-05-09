@@ -48,11 +48,11 @@ def create_appointment(request):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# 🔹 LIST
 @api_view(['GET'])
 def list_appointments(request):
     doctor_id = request.GET.get('doctor_id')
     date = request.GET.get('date')
+    status_filter = request.GET.get('status')
 
     queryset = Appointment.objects.all()
 
@@ -61,6 +61,9 @@ def list_appointments(request):
 
     if date:
         queryset = queryset.filter(start_time__date=date)
+
+    if status_filter:
+        queryset = queryset.filter(status=status_filter.lower())
 
     serializer = AppointmentSerializer(queryset, many=True)
     return Response(serializer.data)

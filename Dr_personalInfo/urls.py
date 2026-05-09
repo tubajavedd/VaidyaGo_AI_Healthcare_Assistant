@@ -3,6 +3,7 @@ from .views import (
     DoctorPersonalInfoCreateView,
     DoctorPersonalInfoDetailView,
     ApprovedDoctorListView,
+    DoctorSubmitView,
 )
 
 urlpatterns = [
@@ -20,5 +21,10 @@ urlpatterns = [
         'approved-doctors/',
         ApprovedDoctorListView.as_view(),
         name='approved_doctor_list'
+    ),
+    path(
+        'submit/<int:pk>/',
+        DoctorSubmitView.as_view(),
+        name='doctor_submit'
     ),
 ]

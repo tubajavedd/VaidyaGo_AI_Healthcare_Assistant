@@ -18,6 +18,76 @@ class AgentManager:
 
     USE_AUTOGEN = os.getenv("CHATBOT_USE_AUTOGEN", "false").lower() == "true"
 
+    # ============ ROLE-BASED ACTION PERMISSIONS ============
+    ROLE_PERMISSIONS = {
+        "PATIENT": [
+            "book_appointment",
+            "cancel_appointment",
+            "reschedule_appointment",
+            "get_prescriptions",
+            "extract_prescription_medicines",
+            "upload_prescription_document",
+            "get_appointment_notifications",
+            "view_medical_records",
+            "get_prescription_details",
+            "get_prescription_lab_results",
+        ],
+        "DOCTOR": [
+            "view_patient_appointments",
+            "view_patient_records",
+            "prescribe_medication",
+            "upload_prescription",
+            "manage_slots",
+            "view_consultations",
+            "update_professional_info",
+            "accept_reject_appointments",
+            "view_patients",
+        ],
+        "ADMIN": [
+            "view_all_users",
+            "manage_user_accounts",
+            "view_appointments",
+            "generate_reports",
+            "manage_system_settings",
+            "resolve_disputes",
+            "view_audit_logs",
+            "system_maintenance",
+            "view_all_data",
+        ],
+    }
+
+    @staticmethod
+    def get_user_role(user):
+        """Extract user role"""
+        if not user:
+            return None
+        try:
+            if hasattr(user, 'role'):
+                return user.role.upper() if user.role else None
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def is_action_allowed(action, user):
+        """Check if user role is allowed to perform the action"""
+        if not action or action == "chat":
+            return True  # Chat is always allowed
+
+        user_role = AgentManager.get_user_role(user)
+        
+        # If no role (guest), restrict to chat only
+        if not user_role:
+            return False
+
+        # PATIENT: Allow all actions (already trained behavior)
+        if user_role == "PATIENT":
+            return True
+
+        # DOCTOR and ADMIN: Check against role permissions
+        allowed_actions = AgentManager.ROLE_PERMISSIONS.get(user_role, [])
+        return action in allowed_actions
+
     @staticmethod
     def handle(intent_data, user):
         """
@@ -28,6 +98,16 @@ class AgentManager:
         if not action or action == "chat":
             return {
                 "message": intent_data.get("message", "I'm here to help."),
+                "action_executed": False,
+                "data": {},
+            }
+
+        # ✅ Check role-based permissions
+        if not AgentManager.is_action_allowed(action, user):
+            user_role = AgentManager.get_user_role(user)
+            logger.warning(f"Action '{action}' denied for role '{user_role}'")
+            return {
+                "message": f"❌ This action is not available for {user_role} users. Please contact support if you believe this is an error.",
                 "action_executed": False,
                 "data": {},
             }

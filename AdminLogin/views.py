@@ -84,12 +84,6 @@ def admin_signup(request):
     if request.method != "POST":
         return JsonResponse({"error": "POST method required"}, status=405)
 
-    if not getattr(settings, "ALLOW_ADMIN_SIGNUP", False):
-        return JsonResponse(
-            {"error": "Admin signup is disabled"},
-            status=403
-        )
-
     data = json.loads(request.body)
 
     usertype = data.get("usertype")
@@ -127,6 +121,12 @@ def admin_signup(request):
     if User.objects.filter(email=email).exists():
         return JsonResponse(
             {"error": "Email already exists"},
+            status=400
+        )
+
+    if User.objects.filter(phone=phone).exists():
+        return JsonResponse(
+            {"error": "Phone number already exists"},
             status=400
         )
 
@@ -179,19 +179,6 @@ def admin_signup(request):
         password=make_password(password)
     )
 
-    payload = {
-        "user_id": user.id,
-        "role": user.role,
-        "email": user.email,
-        "phone": user.phone,
-    }
-
-    token = jwt.encode(
-        payload,
-        settings.SECRET_KEY,
-        algorithm="HS256"
-    )
-
     if usertype == "admin":
         message = "admin signup successfully"
     elif usertype == "doctor":
@@ -199,11 +186,27 @@ def admin_signup(request):
     else:
         message = "patient signup successfully"
 
+    refresh = RefreshToken.for_user(user)
+    access_token = refresh.access_token
+    
+    # Add role to token
+    refresh["role"] = user.role
+    access_token["role"] = user.role
+    refresh["email"] = user.email
+    refresh["username"] = user.username
+    access_token["email"] = user.email
+    access_token["username"] = user.username
+
     return JsonResponse({
         "message": message,
         "username": user.username,
-        "token": token
+        "access": str(access_token),
+        "refresh": str(refresh),
+        "user_id": user.id,
+        "role": user.role,
+        "redirectUrl": "/Form1" if usertype == "doctor" else "/login"
     }, status=201)
+
 
 
 def admin_signup_page(request):
@@ -239,13 +242,32 @@ class AdminLoginView(APIView):
         if user.email == getattr(settings, "ADMIN_EMAIL", None):
             role = "ADMIN"
 
-        return Response({
+        response_data = {
             "access": str(access_token),
             "refresh": str(refresh),
             "role": role,
             "username": user.username,
-            "message": "Login successful"
-        }, status=status.HTTP_200_OK)
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "message": "Login successful",
+            "id": user.id
+        }
+
+        if role == "DOCTOR":
+            from Dr_personalInfo.models import DoctorPersonalInfo
+            from django.db.models import Q
+            query = Q(email=user.email)
+            if hasattr(user, 'phone') and user.phone:
+                query |= Q(mobile_number=user.phone)
+            profile = DoctorPersonalInfo.objects.filter(query).first()
+            if profile:
+                response_data["doctor_id"] = profile.id
+                response_data["first_name"] = profile.first_name
+                response_data["last_name"] = profile.last_name
+                response_data["full_name"] = f"{profile.first_name} {profile.last_name}".strip()
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 
 # ****************** SEND OTP ******************
@@ -327,25 +349,73 @@ def reset_password(request):
     return Response({"message": "Password updated successfully"})
 
 
-# ****************** GET PENDING DOCTORS ******************
+def serialize_doctor_full(d, request):
+    docs = {}
+    for doc in d.documents.all():
+        docs[doc.document_type] = request.build_absolute_uri(doc.document_file.url) if doc.document_file else None
+    
+    # Defaults
+    data = {
+        "id": d.id,
+        "name": f"{d.first_name} {d.last_name}".strip(),
+        "first_name": d.first_name,
+        "last_name": d.last_name,
+        "phone": d.mobile_number,
+        "email": d.email,
+        "dob": d.date_of_birth.strftime('%Y-%m-%d') if d.date_of_birth else "N/A",
+        "gender": d.gender,
+        "city": d.city,
+        "address": d.address,
+        "status": d.status,
+        "documents": docs,
+        "specialization": "N/A",
+        "experience": "N/A",
+        "qualification": "N/A",
+        "license_no": "N/A",
+        "medical_council": "N/A",
+        "employee_id": "N/A",
+        "joining_date": "N/A",
+        "employment_type": "N/A",
+        "consultation_fees": "N/A",
+        "leave_day": "N/A"
+    }
+
+    if hasattr(d, 'professional_info'):
+        p = d.professional_info
+        data.update({
+            "specialization": p.specialization,
+            "experience": f"{p.years_of_experience} years",
+            "qualification": p.qualification,
+            "license_no": p.medical_license_number,
+            "medical_council": p.medical_council,
+            "employee_id": p.doctor_employee_id
+        })
+
+    if hasattr(d, 'hospital_info'):
+        h = d.hospital_info
+        data.update({
+            "joining_date": h.joining_date.strftime('%Y-%m-%d') if h.joining_date else "N/A",
+            "employment_type": h.get_employment_type_display(),
+            "consultation_fees": f"₹ {h.consultation_fees}",
+            "leave_day": h.leave_day
+        })
+    
+    return data
+
 @api_view(["GET"])
 @permission_classes([IsAdmin])
 def pending_doctors(request):
-    DoctorPersonalInfo.objects.filter(
-        status="incomplete"
-    ).update(status="pending")
-
-    doctors = DoctorPersonalInfo.objects.filter(status="pending")
+    # Only show doctors who completed all forms and clicked Done on Form 4
+    # Form 4 submission triggers /api/submit/<id>/ which sets status to 'pending'
+    profile_doctors = DoctorPersonalInfo.objects.filter(status="pending")
 
     data = []
-    for d in doctors:
-        data.append({
-            "id": d.id,
-            "name": f"{d.first_name} {d.last_name}".strip(),
-            "status": d.status
-        })
+    for d in profile_doctors:
+        data.append(serialize_doctor_full(d, request))
 
     return Response(data)
+
+
 
 
 # ****************** APPROVE DOCTOR ******************
@@ -370,15 +440,29 @@ def approve_doctor(request, doctor_id):
     doctor.save()
 
     if doctor.email:
-        email_subject = "Application Approved"
-        email_body = "Your doctor profile has been approved. You can now access the system."
+        email_subject = "Your VaidyaGo Account has been Approved! 🎉"
+        email_body = f"""
+Hello Dr. {doctor.first_name},
+
+Great news! Your application has been reviewed and approved by the VaidyaGo Admin team.
+
+You can now log in to your dashboard and start managing your practice.
+
+Login URL: {getattr(settings, "FRONTEND_URL", "http://localhost:5173")}/Finallogin
+
+Welcome to the VaidyaGo family!
+
+Best regards,
+The VaidyaGo Team
+"""
         
         email = EmailMessage(
             subject=email_subject,
             body=email_body,
-            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "javedtuba1@gmail.com"),
             to=[doctor.email],
         )
+
         email.send(fail_silently=True)
 
         # Send in-app notification if user exists
@@ -387,7 +471,7 @@ def approve_doctor(request, doctor_id):
             Notification.objects.create(
                 user=user,
                 title="Application Approved",
-                message="Your doctor profile has been approved. You can now access the system."
+                message="Admin approved you. You can now login."
             )
 
     return Response({"message": "Doctor approved"})
@@ -463,3 +547,27 @@ Message: {message if message else "No additional message"}
     return Response({
         "message": "Doctor rejected and notified"
     })
+
+
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def approved_doctors(request):
+    doctors = DoctorPersonalInfo.objects.filter(status="approved")
+    data = []
+    for d in doctors:
+        data.append(serialize_doctor_full(d, request))
+
+
+    return Response(data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdmin])
+def rejected_doctors(request):
+    doctors = DoctorPersonalInfo.objects.filter(status="rejected")
+    data = []
+    for d in doctors:
+        data.append(serialize_doctor_full(d, request))
+
+
+    return Response(data)
