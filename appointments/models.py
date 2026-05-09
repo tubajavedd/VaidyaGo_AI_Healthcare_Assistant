@@ -48,6 +48,7 @@ class Appointment(models.Model):
     appointment_type = models.CharField(max_length=100, null=True, blank=True) # e.g. Follow-up Exam
     location = models.CharField(max_length=255, null=True, blank=True)       # e.g. Wing B, Room 402
     patient_age = models.IntegerField(null=True, blank=True)
+    patient_gender = models.CharField(max_length=20, null=True, blank=True)
     patient_mrn = models.CharField(max_length=50, null=True, blank=True)    # e.g. MRN-88210
 
     reschedule_reason = models.TextField(null=True, blank=True)

@@ -1,0 +1,22 @@
+# Task List - Admin Chatbot Intelligence Feeding
+
+- [ ] Update `PromptService` with comprehensive admin knowledge base
+- [ ] Expand `IntentService` with new core intents and actions
+- [ ] Update `ToolRouter` with new action handlers
+    - [ ] Add `dashboard_summary` handler
+    - [ ] Add `doctor_management` handler
+    - [ ] Add `doctor_approval` handler
+    - [ ] Add `patient_management` handler
+    - [ ] Add `appointments_management` handler
+    - [ ] Add `slot_management` handler
+    - [ ] Add `revenue_analytics` handler
+    - [ ] Add `user_analytics` handler
+    - [ ] Add `notifications` handler
+    - [ ] Add `broadcast` handler
+    - [ ] Add `support_tickets` handler
+    - [ ] Add `security` handler
+    - [ ] Add `reports` handler
+    - [ ] Add `maintenance` handler
+    - [ ] Add `logs` handler
+    - [ ] Add `ai_analytics` handler
+- [ ] Verify intent recognition and response quality

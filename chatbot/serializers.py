@@ -3,7 +3,7 @@ from rest_framework import serializers
 
 class ChatRequestSerializer(serializers.Serializer):
     message = serializers.CharField(required=False, allow_blank=True)
-    session_id = serializers.IntegerField(required=False)
+    session_id = serializers.IntegerField(required=False, allow_null=True)
     document = serializers.FileField(required=False)
     documents = serializers.ListField(
         child=serializers.FileField(),
@@ -19,6 +19,7 @@ class ChatResponseSerializer(serializers.Serializer):
     action = serializers.CharField(allow_null=True)
     data = serializers.DictField()
     action_executed = serializers.BooleanField()
+    audio_url = serializers.CharField(allow_null=True, required=False)
 
 
 class PrescriptionUploadSerializer(serializers.Serializer):

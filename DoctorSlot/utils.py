@@ -4,9 +4,13 @@ from django.utils import timezone
 from Dr_personalInfo.models import DoctorPersonalInfo
 from DoctorSlot.models import TimeSlot
 
-def generate_slots_for_week():
+def generate_slots_for_week(target_date=None):
     doctors = DoctorPersonalInfo.objects.all()
-    today = timezone.now().date()
+    if target_date is None:
+        today = timezone.now().date()
+    else:
+        today = target_date
+        
     start_of_week = today + timedelta(days=(7 - today.weekday()))
 
     for doctor in doctors:
@@ -14,6 +18,13 @@ def generate_slots_for_week():
             current_date = start_of_week + timedelta(days=day)
             generate_time_slots(doctor, current_date, time(10, 0), time(13, 0))  # Morning
             generate_time_slots(doctor, current_date, time(16, 0), time(19, 0))  # Evening
+
+def generate_slots_for_doctor(doctor, target_date=None):
+    if target_date is None:
+        target_date = timezone.now().date()
+    
+    generate_time_slots(doctor, target_date, time(10, 0), time(13, 0))  # Morning
+    generate_time_slots(doctor, target_date, time(16, 0), time(19, 0))  # Evening
 
 def generate_time_slots(doctor, date, start, end):
     current = timezone.make_aware(datetime.combine(date, start))

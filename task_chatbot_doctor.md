@@ -1,0 +1,27 @@
+# Task - Chatbot Admin (Doctor AI)
+
+- [/] Core Configuration
+    - [ ] Add `chatbot_doctor` to `INSTALLED_APPS` in `settings.py`
+- [ ] Database Models
+    - [ ] Define `AdminChatSession` and `AdminChatMessage` in `chatbot_doctor/models.py`
+    - [ ] Run migrations
+- [ ] Services Layer (Implement for Admin)
+    - [ ] `chatbot_doctor/services/language_service.py`
+    - [ ] `chatbot_doctor/services/memory_service.py`
+    - [ ] `chatbot_doctor/services/mistral_service.py`
+    - [ ] `chatbot_doctor/services/prompt_service.py`
+    - [ ] `chatbot_doctor/services/smart_extractor.py`
+    - [ ] `chatbot_doctor/services/tools_registry.py`
+    - [ ] `chatbot_doctor/services/tool_router.py`
+    - [ ] `chatbot_doctor/services/intent_service.py`
+    - [ ] `chatbot_doctor/services/llm_service.py`
+    - [ ] `chatbot_doctor/services/chatbot_engine.py`
+- [ ] API Layer
+    - [ ] `chatbot_doctor/serializers.py`
+    - [ ] `chatbot_doctor/views.py`
+    - [ ] `chatbot_doctor/urls.py`
+    - [ ] Include URLs in `vaidyaGo/urls.py`
+- [ ] Verification
+    - [ ] Create `test_chatbot_doctor.py`
+    - [ ] Verify basic chat functionality
+    - [ ] Verify doctor-specific tool execution

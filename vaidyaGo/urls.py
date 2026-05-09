@@ -36,6 +36,8 @@ urlpatterns = [
     path('api/prescriptions/', include('newRequest_activePrescription_medication.urls')),
     path('api/', include('AddPastMedication.urls')),
     path("api/vado/", include("chatbot.urls")),
+    path("api/vado-doctor/", include("chatbot_doctor.urls")),
+    path("api/vado-admin/", include("chatbot_admin.urls")),
     path("update/", include('updateLog_medication.urls')),
     path("api/", include("account_setting.urls")),
     path('profile/',include('editProfile.urls')),

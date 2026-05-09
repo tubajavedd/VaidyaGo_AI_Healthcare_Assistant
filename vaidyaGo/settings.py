@@ -77,6 +77,8 @@ INSTALLED_APPS = [
     'newRequest_activePrescription_medication',
     'AddPastMedication',
     'chatbot',
+    'chatbot_doctor',
+    'chatbot_admin',
     'updateLog_medication',
     'account_setting',
     'editProfile',
@@ -139,7 +141,7 @@ AUTHENTICATION_BACKENDS = [
 
 
 CORS_ALLOW_CREDENTIALS = True
-SECURE_SSL_REDIRECT = not DEBUG
+SECURE_SSL_REDIRECT = False
 
 from corsheaders.defaults import default_headers
 
@@ -225,9 +227,12 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=2),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # Tokens stay valid until the user explicitly logs out
+    # Logout clears tokens from localStorage on the frontend
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 

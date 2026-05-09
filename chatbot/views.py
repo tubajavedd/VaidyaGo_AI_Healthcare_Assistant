@@ -1,6 +1,6 @@
 import logging
 
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
 
@@ -28,7 +28,16 @@ def chat_view(request):
     message = serializer.validated_data.get("message", "").strip()
     session_id = serializer.validated_data.get("session_id")
     documents = request.FILES.getlist("documents") or request.FILES.getlist("document")
+    audio_file = request.FILES.get("audio")
     user = request.user if request.user and request.user.is_authenticated else None
+
+    # Handle Audio Transcription via Whisper
+    if audio_file:
+        from .services.voice_service import VoiceService
+        transcription = VoiceService.transcribe(audio_file)
+        if transcription:
+            message = transcription
+            logger.info(f"Whisper Transcription: {message}")
 
     # --- NEW: Handle Document/Prescription Upload via Chat ---
     if documents and user:
@@ -97,6 +106,10 @@ def chat_view(request):
         message=message,
         session_id=session_id,
     )
+
+    # Add Natural Voice URL via gTTS
+    from .services.tts_service import TTSService
+    response_data['audio_url'] = TTSService.generate_speech(response_data.get('reply', ''))
 
     response_serializer = ChatResponseSerializer(data=response_data)
     if not response_serializer.is_valid():
@@ -176,7 +189,6 @@ def upload_prescription_api(request):
     from prescription_management.ocr_service import OCRService
     from prescription_management.views import PrescriptionUploadView
     from datetime import datetime
-    from rest_framework.permissions import IsAuthenticated
     
     user = request.user if request.user and request.user.is_authenticated else None
     if not user:

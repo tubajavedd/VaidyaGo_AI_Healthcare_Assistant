@@ -1,0 +1,19 @@
+import logging
+from chatbot_admin.services.mistral_service import MistralService
+from chatbot_admin.services.prompt_service import PromptService
+
+logger = logging.getLogger(__name__)
+
+class LLMService:
+    @staticmethod
+    def generate_response(prompt):
+        """
+        Generates a response using the preferred backend.
+        """
+        # Primary: Mistral
+        response = MistralService.generate_response(prompt, PromptService.SYSTEM_PROMPT)
+        
+        if response:
+            return response
+            
+        return "I'm sorry, I'm having trouble processing your administrative request right now."
