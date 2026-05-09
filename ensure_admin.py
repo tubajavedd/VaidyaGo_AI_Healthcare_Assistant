@@ -14,8 +14,8 @@ from django.conf import settings
 User = get_user_model()
 
 def ensure_admin():
-    admin_email = getattr(settings, "ADMIN_EMAIL", "khanadiba9746@gmail.com")
-    admin_username = "admin_khanadiba"
+    admin_email = getattr(settings, "ADMIN_EMAIL", "javedtuba1@gmail.com")
+    admin_username = "admin_javedtuba"
     admin_password = "admin_password123" # User should change this later
 
     user, created = User.objects.get_or_create(
