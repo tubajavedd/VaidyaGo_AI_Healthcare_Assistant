@@ -206,7 +206,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ALLOW_ADMIN_SIGNUP = False
 ADMIN_EMAIL = "javedtuba1@gmail.com"
 
-#
+##
 CORS_ALLOW_ALL_ORIGINS = True
 
 from pathlib import Path
