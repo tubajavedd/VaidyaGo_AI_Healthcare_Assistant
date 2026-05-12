@@ -16,11 +16,17 @@ class IntentService:
         else:
             data = IntentService._extract_json(llm_output)
 
+        # Merge 'parameters' into 'data' if 'data' is empty and 'parameters' exists
+        # This handles cases where LLM uses 'parameters' instead of 'data'
+        intent_data = data.get("data", {})
+        if not intent_data and "parameters" in data:
+            intent_data = data.get("parameters", {})
+
         return {
             "intent": data.get("intent", "chat"),
             "action": data.get("action"),
             "message": data.get("message", ""),
-            "data": data.get("data", {}),
+            "data": intent_data,
             "confidence": data.get("confidence", 0.5),
         }
 
@@ -46,13 +52,12 @@ class IntentService:
 
         json_str = cleaned_text[start:end]
 
-        # 2. Fix common LLM mistakes like "string" + "string" or "string" + \n "string"
+        # 2. Fix common LLM mistakes
         import re
-        # Remove " + \n " style concatenations (escaped or raw)
-        json_str = re.sub(r'"\s*\+\s*\\n\s*"', '', json_str)
-        json_str = re.sub(r'"\s*\+\s*"\s*\n\s*', '', json_str)
-        json_str = re.sub(r'"\s*\+\s*', '', json_str)
-        json_str = re.sub(r'\s*\+\s*"', '', json_str)
+        # Only remove plus signs that are between quotes (concatenation)
+        json_str = re.sub(r'"\s*\+\s*"', '', json_str)
+        # Remove single-line comments (//...) but avoid stripping URLs (://)
+        json_str = re.sub(r'(?m)(?<!:)\s*//.*$', '', json_str)
 
         try:
             payload = json.loads(json_str)

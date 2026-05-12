@@ -17,6 +17,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
             'id', 'doctor', 'doctor_name', 'slot', 'slot_details', 'user', 
             'patient_name', 'patient_phone', 'patient_email',
             'patient_age', 'patient_gender', 'patient_mrn',
+            'patient_weight', 'patient_disease', 'patient_heart_rate', 
+            'patient_blood_type', 'patient_photo',
             'appointment_type', 'location',
             'start_time', 'end_time', 'status', 
             'reschedule_reason', 'rejection_reason', 'created_at'

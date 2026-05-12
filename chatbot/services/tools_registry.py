@@ -96,59 +96,7 @@ TOOLS_REGISTRY = {
         }
     },
 
-    "generate_slots": {
-        "name": "generate_slots",
-        "description": "Generate appointment slots for a doctor",
-        "category": "doctor_slots",
-        "endpoint": "/api/generate-slots/",
-        "method": "POST",
-        "parameters": {
-            "doctor_id": {"type": "integer", "description": "ID of the doctor"},
-            "start_date": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
-            "end_date": {"type": "string", "description": "End date (YYYY-MM-DD)"},
-            "slot_duration": {"type": "integer", "description": "Slot duration in minutes"}
-        },
-        "response_format": {
-            "success": True,
-            "message": "Slots generated",
-            "total_slots": "integer"
-        }
-    },
 
-    "upload_doctor_documents": {
-        "name": "upload_doctor_documents",
-        "description": "Upload medical documents for a doctor",
-        "category": "documents",
-        "endpoint": "/api/doctor-documents/upload/",
-        "method": "POST",
-        "parameters": {
-            "document_type": {"type": "string", "description": "Type of document (license, certificate, etc.)"},
-            "file": {"type": "file", "description": "Document file"}
-        },
-        "response_format": {
-            "success": True,
-            "document_id": "integer"
-        }
-    },
-
-    "get_doctor_documents": {
-        "name": "get_doctor_documents",
-        "description": "Get all doctor documents",
-        "category": "documents",
-        "endpoint": "/api/doctor-documents/list/",
-        "method": "GET",
-        "parameters": {},
-        "response_format": {
-            "documents": [
-                {
-                    "id": "integer",
-                    "type": "string",
-                    "filename": "string",
-                    "uploaded_at": "datetime"
-                }
-            ]
-        }
-    },
 
     "submit_feedback": {
         "name": "submit_feedback",
@@ -310,36 +258,39 @@ TOOLS_REGISTRY = {
 
     "set_reminder": {
         "name": "set_reminder",
-        "description": "Set a reminder for medication or appointment",
+        "description": "Set a medication reminder for the user (e.g., 'remind me to take Paracetamol 500mg twice a day for 5 days')",
         "category": "reminders",
-        "endpoint": "/reminder/set/",
+        "endpoint": "/reminder/create/",
         "method": "POST",
         "parameters": {
-            "type": {"type": "string", "description": "Reminder type (medication/appointment)"},
-            "title": {"type": "string", "description": "Reminder title"},
-            "datetime": {"type": "datetime", "description": "Reminder date and time"},
-            "description": {"type": "string", "description": "Reminder description"}
+            "medicine_name": {"type": "string", "description": "Name of the medicine", "required": True},
+            "dosage": {"type": "string", "description": "Dosage (e.g., 500mg, 1 tablet)", "required": False},
+            "frequency": {"type": "string", "description": "Frequency (e.g., twice daily, 1-0-1)", "required": False},
+            "times": {"type": "array", "items": {"type": "string"}, "description": "Time slots: morning, afternoon, evening, night", "required": False},
+            "duration_days": {"type": "integer", "description": "Duration in days", "required": False}
         },
         "response_format": {
             "success": True,
-            "reminder_id": "integer"
+            "message": "Reminder set successfully"
         }
     },
 
     "get_reminders": {
         "name": "get_reminders",
-        "description": "Get all active reminders",
+        "description": "View all active medication reminders and schedules",
         "category": "reminders",
-        "endpoint": "/reminder/list/",
+        "endpoint": "/reminder/",
         "method": "GET",
         "parameters": {},
         "response_format": {
             "reminders": [
                 {
                     "id": "integer",
-                    "title": "string",
-                    "datetime": "datetime",
-                    "type": "string"
+                    "medicine_name": "string",
+                    "dosage": "string",
+                    "frequency": "string",
+                    "times": "array",
+                    "end_date": "string"
                 }
             ]
         }
@@ -552,6 +503,58 @@ TOOLS_REGISTRY = {
             "hospital_name": "string",
             "doctor_phone": "string",
             "hospital_address": "string"
+        }
+    },
+    "add_symptoms": {
+        "name": "add_symptoms",
+        "description": "Log patient symptoms and vitals (headache, fatigue, eye strain, temperature, heart rate)",
+        "category": "health",
+        "parameters": {
+            "headache_duration": {"type": "string", "description": "e.g., '2 hours'", "required": False},
+            "headache_severity": {"type": "string", "description": "Mild, Moderate, or Severe", "required": False},
+            "fatigue_duration": {"type": "string", "description": "e.g., '1 day'", "required": False},
+            "fatigue_severity": {"type": "string", "description": "Mild, Moderate, or Severe", "required": False},
+            "eye_strain_duration": {"type": "string", "description": "e.g., '30 mins'", "required": False},
+            "eye_strain_severity": {"type": "string", "description": "Mild, Moderate, or Severe", "required": False},
+            "temperature_f": {"type": "number", "description": "Body temperature in Fahrenheit", "required": False},
+            "heart_rate_bpm": {"type": "integer", "description": "Heart rate in beats per minute", "required": False}
+        }
+    },
+
+    "mark_medication_taken": {
+        "name": "mark_medication_taken",
+        "description": "Mark a medication reminder or schedule item as taken (dismissed)",
+        "category": "medication",
+        "parameters": {
+            "reminder_id": {"type": "integer", "description": "ID of the reminder/schedule item", "required": True},
+            "medication_name": {"type": "string", "description": "Name of the medicine (optional lookup)", "required": False}
+        }
+    },
+
+    "get_today_schedule": {
+        "name": "get_today_schedule",
+        "description": "Get all medications scheduled for today",
+        "category": "medication",
+        "parameters": {}
+    },
+
+    "request_refill": {
+        "name": "request_refill",
+        "description": "Request a refill for an active prescription",
+        "category": "medication",
+        "parameters": {
+            "medication_id": {"type": "integer", "description": "ID of the medication", "required": True},
+            "pharmacy_id": {"type": "integer", "description": "ID of the pharmacy", "required": True},
+            "delivery_preference": {"type": "string", "description": "pickup or delivery", "required": True}
+        }
+    },
+
+    "get_notifications": {
+        "name": "get_notifications",
+        "description": "Get unread notifications and appointment alerts",
+        "category": "system",
+        "parameters": {
+            "limit": {"type": "integer", "description": "Number of notifications to fetch", "required": False}
         }
     }
 }

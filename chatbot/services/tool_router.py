@@ -1,13 +1,25 @@
 import logging
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 from django.db import transaction
 from Dr_personalInfo.models import DoctorPersonalInfo
 from DoctorSlot.models import TimeSlot
 from appointments.models import Appointment
+from reminder.models import Reminder
+from SymptomChecker.models import DailySymptomVitals, Patient as SymptomPatient
+from Notifications.models import Notification
+from TodaySchedule_medication.models import Schedule
+from newRequest_activePrescription_medication.models import PrescriptionRequest, Medication, Pharmacy
 
 logger = logging.getLogger(__name__)
+
+TIME_MAP = {
+    'morning': '08:00',
+    'afternoon': '13:00',
+    'evening': '19:00',
+    'night': '22:00'
+}
 
 
 class ToolRouter:
@@ -68,11 +80,25 @@ class ToolRouter:
             return ToolRouter._list_prescription_documents(user)
 
         if action == "get_notifications":
-            return {
-                "message": "I can show your notifications, but no notifications endpoint is configured yet.",
-                "action_executed": False,
-                "data": {},
-            }
+            return ToolRouter._get_notifications(user, data)
+
+        if action == "add_symptoms":
+            return ToolRouter._add_symptoms(user, data)
+
+        if action == "mark_medication_taken":
+            return ToolRouter._mark_medication_taken(user, data)
+
+        if action == "get_today_schedule":
+            return ToolRouter._get_today_schedule(user)
+
+        if action == "request_refill":
+            return ToolRouter._request_refill(user, data)
+
+        if action == "set_reminder" or action == "create_reminder":
+            return ToolRouter._create_reminder(data, user)
+
+        if action == "get_reminders" or action == "list_reminders":
+            return ToolRouter._list_reminders(user)
 
         return {
             "message": message or f"I could not process the action '{action}'.",
@@ -926,6 +952,128 @@ class ToolRouter:
         return None
 
     @staticmethod
+    def _create_reminder(data, user):
+        if not user:
+            return {"message": "Please log in to set reminders.", "action_executed": False, "data": {}}
+        
+        from reminder.models import Reminder
+        from reminder.views import TIME_MAP
+        from datetime import date, timedelta, datetime
+        
+        # Check if multiple medications are provided
+        medications = data.get("medications", [])
+        if not medications and "parameters" in data: # Extra check for nested parameters
+             medications = data.get("parameters", {}).get("medications", [])
+             
+        if medications and isinstance(medications, list):
+            created_count = 0
+            for med_data in medications:
+                res = ToolRouter._save_single_reminder(user, med_data, date.today())
+                if res:
+                    created_count += 1
+            
+            if created_count > 0:
+                return {
+                    "message": f"✅ Successfully set {created_count} medication reminders for you.",
+                    "action_executed": True,
+                    "data": {"count": created_count}
+                }
+            return {"message": "I couldn't set any reminders. Please check the medicine details.", "action_executed": False, "data": {}}
+
+        # Single medication handling
+        res = ToolRouter._save_single_reminder(user, data, date.today())
+        if res:
+            medicine_name = data.get("medicine_name") or data.get("title")
+            return {
+                "message": f"✅ Reminder set for {medicine_name}.",
+                "action_executed": True,
+                "data": {"medicine_name": medicine_name}
+            }
+        
+        return {"message": "What is the name of the medicine for the reminder?", "action_executed": False, "data": {"missing_field": "medicine_name"}}
+
+    @staticmethod
+    def _save_single_reminder(user, med_data, start_date):
+        from reminder.models import Reminder
+        from reminder.views import TIME_MAP
+        from datetime import date, timedelta, datetime
+        
+        medicine_name = med_data.get("medicine_name") or med_data.get("title") or med_data.get("name")
+        if not medicine_name:
+            return None
+            
+        dosage = med_data.get("dosage", "")
+        frequency = med_data.get("frequency", "Daily")
+        
+        duration_input = med_data.get("duration_days") or med_data.get("duration", 7)
+        try:
+            duration = int(duration_input)
+        except (ValueError, TypeError):
+            duration = 7
+            
+        times_input = med_data.get("times") or med_data.get("time", ["morning"])
+        if isinstance(times_input, str):
+            times = [t.strip().lower() for t in re.split(r'[,\s]+', times_input)]
+            # Special case for "morning and night"
+            if "and" in times: times.remove("and")
+        elif isinstance(times_input, list):
+            times = [str(t).lower() for t in times_input]
+        else:
+            times = ["morning"]
+
+        end_date = start_date + timedelta(days=duration)
+        
+        first_time_slot = times[0] if times else "morning"
+        first_time_str = TIME_MAP.get(first_time_slot, "08:00")
+        try:
+            trigger_time = datetime.strptime(first_time_str, "%H:%M").time()
+            next_trigger = datetime.combine(start_date, trigger_time)
+        except Exception:
+            next_trigger = datetime.now()
+        
+        return Reminder.objects.create(
+            user=user,
+            medicine_name=medicine_name,
+            dosage=dosage,
+            frequency=frequency,
+            duration_days=duration,
+            times=times,
+            start_date=start_date,
+            end_date=end_date,
+            next_trigger=next_trigger
+        )
+
+    @staticmethod
+    def _list_reminders(user):
+        if not user:
+            return {"message": "Please log in to view reminders.", "action_executed": False, "data": {}}
+        
+        reminders = Reminder.objects.filter(user=user).order_by('next_trigger')
+        
+        if not reminders.exists():
+            return {"message": "📋 You don't have any active reminders currently.", "action_executed": True, "data": {"reminders": []}}
+            
+        rem_list = []
+        structured_data = []
+        for r in reminders:
+            times_str = ", ".join(r.times)
+            rem_list.append(f"- **{r.medicine_name}** ({r.dosage or 'no dosage specified'}): {times_str.title()} (Until {r.end_date})")
+            structured_data.append({
+                "id": r.id,
+                "medicine_name": r.medicine_name,
+                "dosage": r.dosage,
+                "frequency": r.frequency,
+                "times": r.times,
+                "end_date": r.end_date.strftime("%Y-%m-%d") if r.end_date else None
+            })
+            
+        return {
+            "message": "📋 Here are your active medication reminders:\n\n" + "\n".join(rem_list),
+            "action_executed": True,
+            "data": {"reminders": structured_data}
+        }
+
+    @staticmethod
     def get_available_tools(category=None):
         return {
             "tools": [
@@ -943,7 +1091,9 @@ class ToolRouter:
                 "get_doctor_info_from_prescription",
                 "document_inquiry",
                 "get_notifications",
+                "set_reminder",
+                "get_reminders",
             ],
-            "count": 14,
+            "count": 16,
             "category": category,
         }

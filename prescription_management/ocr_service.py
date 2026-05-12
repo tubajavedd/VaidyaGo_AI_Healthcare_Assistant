@@ -31,7 +31,7 @@ class OCRService:
         """
 
         default_response = {
-            "document_type": None,
+            "document_type": "Medical Document",
             "doctor_name": None,
             "hospital_name": None,
             "report_date": None,
@@ -47,7 +47,7 @@ class OCRService:
             return default_response
 
         if "doctor_name" in data or "hospital_name" in data:
-            data.setdefault("document_type", "medical_document")
+            data.setdefault("document_type", "Medical Document")
             data.setdefault("report_date", data.get("prescription_date"))
             data.setdefault("summary", "Medical document analyzed successfully.")
             data.setdefault("findings", [])
@@ -148,6 +148,7 @@ class OCRService:
             "findings": findings,
             "medicines": medicines,
             "test_results": test_results,
+            "vitals": report.get("vitals") or {},
             "recommendations": recommendations
         }
 ######ADD DCOTUMENT DETECTOR
@@ -155,15 +156,15 @@ class OCRService:
     def detect_document_type(data):
 
         if data.get("ultrasound_findings"):
-            return "scan_report"
+            return "Imaging & Radiology"
 
         if data.get("impressions"):
-            return "lab_report"
+            return "Lab Report"
 
         if data.get("prescriptions") or data.get("prescribed_medicines"):
-            return "prescription"
+            return "Prescription"
 
-        return "medical_document"
+        return "Medical Document"
 ###ADD patient friendly summary generator
     @staticmethod
     def generate_summary(data):
@@ -407,6 +408,11 @@ class OCRService:
             "summary": null,
             "findings": [],
             "special_instructions": null,
+            "vitals": {{
+                "temperature_f": null,
+                "heart_rate_bpm": null,
+                "blood_pressure": null
+            }},
             "medicines": [],
             "test_results": [],
             "recommendations": []
@@ -528,5 +534,6 @@ class OCRService:
                 or data.get("consultant_notes")
                 or data.get("notes")
             ),
+            "vitals": data.get("vitals") or {},
             "medicines": medicines
         }

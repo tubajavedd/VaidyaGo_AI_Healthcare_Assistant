@@ -31,6 +31,8 @@ class AgentManager:
             "view_medical_records",
             "get_prescription_details",
             "get_prescription_lab_results",
+            "set_reminder",
+            "get_reminders",
         ],
         "DOCTOR": [
             "view_patient_appointments",
@@ -67,25 +69,15 @@ class AgentManager:
         except Exception:
             pass
         return None
-
     @staticmethod
     def is_action_allowed(action, user):
         """Check if user role is allowed to perform the action"""
         if not action or action == "chat":
             return True  # Chat is always allowed
 
-        user_role = AgentManager.get_user_role(user)
-        
-        # If no role (guest), restrict to chat only
-        if not user_role:
-            return False
-
-        # PATIENT: Allow all actions (already trained behavior)
-        if user_role == "PATIENT":
-            return True
-
-        # DOCTOR and ADMIN: Check against role permissions
-        allowed_actions = AgentManager.ROLE_PERMISSIONS.get(user_role, [])
+        # In this chatbot (Patient Bot), we ONLY allow actions from the PATIENT role
+        # regardless of the user's actual system role.
+        allowed_actions = AgentManager.ROLE_PERMISSIONS.get("PATIENT", [])
         return action in allowed_actions
 
     @staticmethod
@@ -106,8 +98,15 @@ class AgentManager:
         if not AgentManager.is_action_allowed(action, user):
             user_role = AgentManager.get_user_role(user)
             logger.warning(f"Action '{action}' denied for role '{user_role}'")
+            
+            # Specific refusal message for patients trying doctor actions
+            if user_role == "PATIENT" and action == "generate_slots":
+                msg = "you cant generate slot , you are patient not doctor"
+            else:
+                msg = f"❌ This action is not available for {user_role.lower() if user_role else 'guest'} users. Please use the appropriate dashboard for this task."
+                
             return {
-                "message": f"❌ This action is not available for {user_role} users. Please contact support if you believe this is an error.",
+                "message": msg,
                 "action_executed": False,
                 "data": {},
             }

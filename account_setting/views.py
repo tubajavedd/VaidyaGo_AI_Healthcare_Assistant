@@ -165,6 +165,18 @@ class RequestDataDeletionView(APIView):
 class SwitchLanguageView(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get(self, request):
+        settings, _ = AccountSettings.objects.get_or_create(
+            user=request.user,
+            defaults={
+                "full_name": request.user.get_full_name() or request.user.username,
+                "email": request.user.email,
+            }
+        )
+        return Response({
+            "language": settings.language
+        })
+
     def post(self, request):
         settings, _ = AccountSettings.objects.get_or_create(
             user=request.user,

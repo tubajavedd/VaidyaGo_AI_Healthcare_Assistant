@@ -18,6 +18,7 @@ class Prescription(models.Model):
     hospital_name = models.CharField(max_length=255, null=True, blank=True)
     prescription_date = models.DateField(null=True, blank=True)
     extracted_patient_name = models.CharField(max_length=255, null=True, blank=True)
+    document_name = models.CharField(max_length=255, null=True, blank=True)
     document_type = models.CharField(max_length=100, null=True, blank=True)
     summary = models.TextField(null=True, blank=True)
     findings = models.JSONField(default=list, blank=True)

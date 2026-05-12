@@ -22,6 +22,7 @@ urlpatterns = [
     path("auth/", include("Auth.urls")),
     path('api/feedback/', include('feedback.urls')),
     path('accounts/', include('AdminLogin.urls')),
+    path('accounts/', include('account_setting.urls')),
     path('api/admin/',include('adminProfile.urls')),
     path('api/', include('Dr_personalInfo.urls')),
     path('api/',include('Dr_professionalInfo.urls')),
@@ -43,5 +44,6 @@ urlpatterns = [
     path('profile/',include('editProfile.urls')),
     path('api/', include('prescription_management.urls')),
     path('api/symptomchecker/', include('SymptomChecker.urls')),
+    path('api/diagnostic/', include('diagnostics.urls')),
 
 ]

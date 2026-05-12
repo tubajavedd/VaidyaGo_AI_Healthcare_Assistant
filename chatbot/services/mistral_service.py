@@ -38,10 +38,10 @@ class MistralService:
         }
 
         import time
-        max_retries = 3
+        max_retries = 2
         for attempt in range(max_retries):
             try:
-                response = requests.post(url, headers=headers, json=payload, timeout=30)
+                response = requests.post(url, headers=headers, json=payload, timeout=15)
                 if response.status_code == 429:
                     time.sleep(2 ** attempt)
                     continue

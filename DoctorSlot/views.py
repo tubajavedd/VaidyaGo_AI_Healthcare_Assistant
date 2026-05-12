@@ -4,8 +4,11 @@ from rest_framework import status
 from django.shortcuts import get_object_or_404
 # DoctorSlot/views.py
 from django.http import JsonResponse
-from DoctorSlot.utils import generate_slots_for_week
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from datetime import datetime, timedelta
+from DoctorSlot.utils import generate_slots_for_week
+from .models import TimeSlot
 
 
 @csrf_exempt
@@ -45,12 +48,29 @@ class DoctorSlotListCreateAPI(APIView):
     def post(self, request):
         serializer = DoctorSlotSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            doctor_slot = serializer.save()
+            self._generate_timeslots_for_doctor_slot(doctor_slot)
             return Response(
                 {"message": "Doctor slot created successfully"},
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def _generate_timeslots_for_doctor_slot(self, doctor_slot):
+        current_date = doctor_slot.from_date
+        while current_date <= doctor_slot.to_date:
+            current_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.from_time))
+            end_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.to_time))
+            while current_dt < end_dt:
+                slot_end = current_dt + timedelta(minutes=doctor_slot.slot_duration)
+                if not TimeSlot.objects.filter(doctor=doctor_slot.doctor, start_time=current_dt).exists():
+                    TimeSlot.objects.create(
+                        doctor=doctor_slot.doctor,
+                        start_time=current_dt,
+                        end_time=slot_end
+                    )
+                current_dt = slot_end
+            current_date += timedelta(days=1)
 
 
 class DoctorSlotDetailAPI(APIView):

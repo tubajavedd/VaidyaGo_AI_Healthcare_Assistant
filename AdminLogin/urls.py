@@ -4,6 +4,8 @@ from .views import AdminLoginView
 from .views import AdminDoctorListCreateView, AdminDoctorUpdateView #doctor CRUD OPERATION
 from .views import pending_doctors, approve_doctor, reject_doctor, approved_doctors, rejected_doctors
 from .views import send_otp, verify_otp, reset_password
+from rest_framework_simplejwt.views import TokenRefreshView
+
 
 
 urlpatterns = [
@@ -27,4 +29,5 @@ urlpatterns = [
     path('send-otp/', send_otp),
     path('verify-otp/', verify_otp),
     path('reset-password/', reset_password),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

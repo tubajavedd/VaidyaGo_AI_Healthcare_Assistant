@@ -10,6 +10,7 @@ class Appointment(models.Model):
         ('booked', 'Booked'),
         ('cancelled', 'Cancelled'),
         ('rejected', 'Rejected'),
+        ('outpatient', 'OutPatient'),
     ]
 
     # Doctor (already exists)
@@ -50,6 +51,13 @@ class Appointment(models.Model):
     patient_age = models.IntegerField(null=True, blank=True)
     patient_gender = models.CharField(max_length=20, null=True, blank=True)
     patient_mrn = models.CharField(max_length=50, null=True, blank=True)    # e.g. MRN-88210
+    
+    # New Patient Fields from UI
+    patient_weight = models.CharField(max_length=10, null=True, blank=True) # e.g. 59kg
+    patient_disease = models.CharField(max_length=100, null=True, blank=True) # e.g. Typhoid
+    patient_heart_rate = models.CharField(max_length=20, null=True, blank=True) # e.g. 59 bpm
+    patient_blood_type = models.CharField(max_length=10, null=True, blank=True) # e.g. AB
+    patient_photo = models.ImageField(upload_to='patient_photos/', null=True, blank=True)
 
     reschedule_reason = models.TextField(null=True, blank=True)
     rejection_reason = models.TextField(null=True, blank=True)

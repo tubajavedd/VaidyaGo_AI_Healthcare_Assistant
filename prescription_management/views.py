@@ -7,15 +7,45 @@ from .models import Prescription, PrescribedMedicine
 from .serializers import PrescriptionSerializer, PrescriptionUploadSerializer
 from .ocr_service import OCRService
 from django.utils import timezone
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 
 from TodaySchedule_medication.models import Schedule
+from reminder.models import Reminder
 from django.contrib.auth import get_user_model
 
 logger = logging.getLogger(__name__)
 
 class PrescriptionUploadView(APIView):
     permission_classes = [IsAuthenticated]
+
+    def is_covid_document(self, extracted_data, file_name=None):
+        if not extracted_data:
+            return False
+
+        lower = lambda value: (value or '').__str__().lower()
+        check_values = [
+            lower(extracted_data.get('document_type')),
+            lower(extracted_data.get('document_name')),
+            lower(extracted_data.get('summary')),
+            lower(extracted_data.get('doctor_name')),
+            lower(extracted_data.get('hospital_name')),
+            lower(file_name),
+        ]
+
+        findings = extracted_data.get('findings')
+        if isinstance(findings, list):
+            check_values.append(' '.join(str(x).lower() for x in findings))
+        else:
+            check_values.append(lower(findings))
+
+        test_results = extracted_data.get('test_results')
+        if isinstance(test_results, list):
+            check_values.append(' '.join(str(x).lower() for x in test_results))
+        else:
+            check_values.append(lower(test_results))
+
+        combined = ' '.join(value for value in check_values if value)
+        return 'covid' in combined
 
     def post(self, request):
         images = request.FILES.getlist('image')
@@ -40,6 +70,7 @@ class PrescriptionUploadView(APIView):
         if not documents:
              return Response({"error": "No image or file provided."}, status=status.HTTP_400_BAD_REQUEST)
 
+        restrict_to = request.data.get('restrict_to')
         processed_prescriptions = []
         extraction_summaries = []
 
@@ -55,9 +86,18 @@ class PrescriptionUploadView(APIView):
             # 2. Extract Text via OCR
             file_path = prescription.image.path if prescription.image else prescription.file.path
             extracted_data = OCRService.extract_prescription_details(file_path)
+            
+            # Ensure extracted_data is never None
+            if extracted_data is None:
+                extracted_data = OCRService.normalize_extracted_data(None)
+                
             print("EXTRACTED DATA IN VIEW:")
             print(extracted_data)
             print("-" * 50)
+
+            if restrict_to == 'covid' and not self.is_covid_document(extracted_data, doc.name):
+                prescription.delete()
+                return Response({"error": "Please upload COVID-19 reports here only."}, status=status.HTTP_400_BAD_REQUEST)
             
             # Prepare extraction summary for response
             extraction_summary = {
@@ -94,6 +134,8 @@ class PrescriptionUploadView(APIView):
                         pass
                         
                 prescription.extracted_patient_name = extracted_data.get('patient_name', '')
+                prescription.document_type = extracted_data.get('document_type', 'Medical Document')
+                prescription.document_name = extracted_data.get('document_name') or extracted_data.get('document_type', 'Medical Document')
                 prescription.special_instructions = extracted_data.get('special_instructions', '')
                 prescription.save()
                 
@@ -137,6 +179,7 @@ class PrescriptionUploadView(APIView):
                     
                     # 5. Generate Medicine Schedule
                     self.generate_schedule(request.user, pm)
+                    self.create_medication_reminder(request.user, pm)
 
                 prescription.update_status()
             
@@ -188,6 +231,52 @@ class PrescriptionUploadView(APIView):
             )
 
 
+
+    def create_medication_reminder(self, user, pm):
+        """
+        Automatically creates a Reminder object based on the prescribed medicine's frequency.
+        """
+        from reminder.views import TIME_MAP
+        from datetime import date
+        
+        freq = pm.frequency.lower() if pm.frequency else ''
+        reminder_times = []
+        
+        if 'once' in freq or '1-0-0' in freq:
+            reminder_times = ['morning']
+        elif '0-0-1' in freq:
+            reminder_times = ['night']
+        elif 'twice' in freq or '1-0-1' in freq:
+            reminder_times = ['morning', 'night']
+        elif 'thrice' in freq or '1-1-1' in freq:
+            reminder_times = ['morning', 'afternoon', 'night']
+        elif 'evening' in freq:
+            reminder_times = ['evening']
+        else:
+            reminder_times = ['morning']
+            
+        start_date = date.today()
+        duration = pm.duration_days or 7
+        end_date = start_date + timedelta(days=duration)
+        
+        first_time_str = TIME_MAP.get(reminder_times[0], "08:00")
+        try:
+            trigger_time = datetime.strptime(first_time_str, "%H:%M").time()
+            next_trigger = datetime.combine(start_date, trigger_time)
+        except Exception:
+            next_trigger = timezone.now()
+            
+        Reminder.objects.create(
+            user=user,
+            medicine_name=pm.name,
+            dosage=pm.dosage or '',
+            frequency=pm.frequency or 'Daily',
+            duration_days=duration,
+            times=reminder_times,
+            start_date=start_date,
+            end_date=end_date,
+            next_trigger=next_trigger
+        )
 class PrescriptionListView(generics.ListAPIView):
     serializer_class = PrescriptionSerializer
     permission_classes = [IsAuthenticated]
@@ -260,3 +349,12 @@ class DashboardSummaryView(APIView):
                 "completed": completed
             }
         })
+class PrescriptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Retrieve, update or delete a specific prescription.
+    """
+    permission_classes = [IsAuthenticated]
+    serializer_class = PrescriptionSerializer
+
+    def get_queryset(self):
+        return Prescription.objects.filter(patient=self.request.user)

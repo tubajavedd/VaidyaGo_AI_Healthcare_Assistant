@@ -11,16 +11,70 @@ class VaidyaGoKnowledge:
     Knowledge base for VaidyaGo platform information.
     """
 
-    PLATFORM_INFO = {
-        "name": "VaidyaGo",
-        "tagline": "AI-powered conversational healthcare management platform",
-        "description": (
-            "VaidyaGo is a healthcare platform where patients can discover doctors, "
-            "book appointments, manage healthcare through natural conversation, "
-            "view prescriptions, and access notifications. Instead of filling forms, "
-            "users interact with an AI assistant named Vado."
-        ),
-        "vision": "Make healthcare more accessible and conversational",
+    MEDICATION_SUGGESTIONS = {
+        "headache": {
+            "symptoms": ["head pain", "migraine", "tension headache"],
+            "suggestions": [
+                "Paracetamol (Crocin) - 500mg every 4-6 hours as needed",
+                "Ibuprofen (Brufen) - 400mg every 6-8 hours if no stomach issues",
+                "Aspirin (Disprin) - 325mg, but avoid if you have stomach problems"
+            ],
+            "advice": "If headache persists or is severe, consult a doctor immediately."
+        },
+        "fever": {
+            "symptoms": ["high temperature", "body ache", "chills"],
+            "suggestions": [
+                "Paracetamol (Crocin) - 500mg every 4-6 hours",
+                "Ibuprofen (Advil) - 400mg every 6-8 hours",
+                "Acetaminophen (Tylenol) - 500mg every 4-6 hours"
+            ],
+            "advice": "Monitor temperature. If fever >103°F or lasts >3 days, see a doctor."
+        },
+        "cough": {
+            "symptoms": ["dry cough", "wet cough", "throat irritation"],
+            "suggestions": [
+                "For dry cough: Dextromethorphan (Benadryl) - 10mg every 4 hours",
+                "For wet cough: Guaifenesin (Mucinex) - 200mg every 4 hours",
+                "Cetirizine (Allegra) - 10mg once daily for allergic cough"
+            ],
+            "advice": "Stay hydrated. If cough persists >1 week or has blood, consult doctor."
+        },
+        "cold": {
+            "symptoms": ["runny nose", "sore throat", "congestion"],
+            "suggestions": [
+                "Cetirizine (Allegra) - 10mg once daily for runny nose",
+                "Paracetamol (Crocin) - 500mg for fever/pain",
+                "Saline nasal spray for congestion"
+            ],
+            "advice": "Rest and fluids. If symptoms worsen, see a healthcare professional."
+        },
+        "acidity": {
+            "symptoms": ["heartburn", "indigestion", "stomach pain"],
+            "suggestions": [
+                "Ranitidine (Zantac) - 150mg twice daily",
+                "Omeprazole (Prilosec) - 20mg once daily",
+                "Antacids like Digene - as needed"
+            ],
+            "advice": "Avoid spicy/fatty foods. If persistent, consult gastroenterologist."
+        },
+        "allergy": {
+            "symptoms": ["sneezing", "itchy eyes", "skin rash"],
+            "suggestions": [
+                "Cetirizine (Allegra) - 10mg once daily",
+                "Loratadine (Claritin) - 10mg once daily",
+                "Diphenhydramine (Benadryl) - 25mg every 4-6 hours"
+            ],
+            "advice": "Identify triggers. For severe reactions, seek immediate medical help."
+        },
+        "pain": {
+            "symptoms": ["body pain", "muscle pain", "joint pain"],
+            "suggestions": [
+                "Ibuprofen (Brufen) - 400mg every 6-8 hours",
+                "Diclofenac (Voveran) - 50mg every 8-12 hours",
+                "Paracetamol (Crocin) - 500mg every 4-6 hours"
+            ],
+            "advice": "Rest affected area. If pain severe or swelling present, see doctor."
+        }
     }
 
     CORE_FEATURES = {
@@ -213,7 +267,7 @@ class VaidyaGoKnowledge:
     FUTURE_POSSIBILITIES = {
         "symptom_triage": "AI assistant helps diagnose symptoms and recommend care",
         "prescription_assistant": "Smart medication reminders and refill management",
-        "multi_language": "Support for Hindi, English, and other languages",
+        "multi_language": "Full support for Hindi, English, and Hinglish",
         "multi_agent": "Specialized agents for booking, symptoms, escalation",
         "reminders": "Appointment and medication reminders",
     }
@@ -231,9 +285,13 @@ class VaidyaGoKnowledge:
         "how_to_book": {
             "question": "How do I book an appointment?",
             "answer": (
-                "Simply tell Vado what you need. Example: 'Book an appointment with Dr. Smith on Monday at 10 AM'. "
-                "You can also say 'I need to see a dentist tomorrow' and Vado will handle the rest, "
-                "extracting doctor details, date, and time automatically."
+                "To book an appointment, follow these steps: "
+                "1. Go to your Dashboard. "
+                "2. Click on 'New Consultation'. "
+                "3. Choose the category or disease you need help with. For example, choose 'Cardiac Care' for heart-related issues or 'Gynecologist' for women's health. "
+                "4. Select the specialist you'd like to see. "
+                "5. Book your appointment slot. "
+                "You will receive a confirmation message as soon as the doctor accepts your appointment!"
             ),
         },
         "vado_features": {
@@ -286,7 +344,7 @@ class VaidyaGoKnowledge:
         "languages_supported": {
             "question": "What languages does VaidyaGo support?",
             "answer": (
-                "VaidyaGo currently supports English. Multi-language support for Hindi and other languages is coming soon."
+                "VaidyaGo supports English, Hindi, and Hinglish. You can talk to Vado in any of these languages and she will respond accordingly!"
             ),
         },
         "how_to_cancel_appointment": {

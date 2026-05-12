@@ -14,7 +14,7 @@ class IsAdmin(BasePermission):
         # Explicitly allow the configured admin email
         from django.conf import settings
         admin_email = getattr(settings, "ADMIN_EMAIL", None)
-        if admin_email and user.email == admin_email:
+        if admin_email and user.email and user.email.lower() == admin_email.lower():
             return True
 
         return getattr(user, "role", None) == "ADMIN"

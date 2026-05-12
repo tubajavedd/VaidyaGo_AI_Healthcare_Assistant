@@ -14,7 +14,7 @@ class ChatRequestSerializer(serializers.Serializer):
 
 class ChatResponseSerializer(serializers.Serializer):
     reply = serializers.CharField()
-    session_id = serializers.IntegerField()
+    session_id = serializers.IntegerField(allow_null=True)
     intent = serializers.CharField()
     action = serializers.CharField(allow_null=True)
     data = serializers.DictField()

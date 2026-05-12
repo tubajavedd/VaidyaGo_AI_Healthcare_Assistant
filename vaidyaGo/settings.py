@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     'editProfile',
     'prescription_management',
     'SymptomChecker',
+    'diagnostics',
 ]
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -222,6 +223,7 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'EXCEPTION_HANDLER': 'diagnostics.middleware.exception_handler.diagnostic_exception_handler',
 }
 
 from datetime import timedelta

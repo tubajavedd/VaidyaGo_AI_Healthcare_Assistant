@@ -69,29 +69,45 @@ def list_appointments(request):
     return Response(serializer.data)
 
 
+@api_view(['GET'])
+def pending_appointments(request):
+    doctor_id = request.GET.get('doctor_id')
+    if not doctor_id:
+        return Response({"error": "doctor_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    appointments = Appointment.objects.filter(doctor_id=doctor_id, status='pending').order_by('-created_at')
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data)
+
+
 from django.conf import settings
 from django.core.mail import send_mail
 from Notifications.models import Notification
 from AdminLogin.models import User
 
 def notify_appointment_change(appt, title, message):
-    # 1. Send App Notification (if user is linked)
+    user_obj = None
+    
+    # 1. Try to find user by linked ID
     if appt.user:
         try:
             user_obj = User.objects.get(id=appt.user)
-            Notification.objects.create(user=user_obj, title=title, message=message)
-        except:
-            pass
-
-    # 2. Send Email
-    recipient = appt.patient_email
-    if not recipient and appt.user:
-        try:
-            user_obj = User.objects.get(id=appt.user)
-            recipient = user_obj.email
-        except:
+        except User.DoesNotExist:
             pass
             
+    # 2. If not found, try to find user by email
+    if not user_obj and appt.patient_email:
+        try:
+            user_obj = User.objects.get(email=appt.patient_email)
+        except User.DoesNotExist:
+            pass
+
+    # 3. Create App Notification if user exists
+    if user_obj:
+        Notification.objects.create(user=user_obj, title=title, message=message)
+
+    # 4. Send Email
+    recipient = appt.patient_email or (user_obj.email if user_obj else None)
     if recipient:
         send_mail(
             subject=title,
@@ -160,7 +176,7 @@ def accept_appointment(request, id):
     notify_appointment_change(
         appt, 
         "Appointment Confirmed", 
-        f"Your appointment request for Dr. {appt.doctor} has been confirmed. Location: {appt.location or 'Main Clinic'}"
+        f"Appointment booked with Dr. {appt.doctor.first_name} {appt.doctor.last_name}"
     )
 
     return Response({
@@ -196,8 +212,8 @@ def reject_appointment(request, id):
     # Send Notification
     notify_appointment_change(
         appt, 
-        "Appointment Rejected", 
-        f"Your appointment request with Dr. {appt.doctor} was declined. Clinical Note: {reason}"
+        "Appointment Rejection", 
+        f"Your appointment with Dr. {appt.doctor.first_name} {appt.doctor.last_name} has been rejected. Reason: {reason}"
     )
 
     return Response({"message": "Appointment rejected successfully"})

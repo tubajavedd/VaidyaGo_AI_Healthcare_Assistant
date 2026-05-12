@@ -13,11 +13,11 @@ from chatbot.services.vaidyago_knowledge_base import VaidyaGoKnowledge
 logger = logging.getLogger(__name__)
 
 INTERJECTIONS = {
-    "positive": ["🤩 ", "✨ ", "🌟 ", "✅ ", "👏 ", "🔥 ", "🚀 ", "🎯 "],
-    "relief": ["🎉 ", "🎊 ", "🙌 ", "🥳 ", "🎈 ", "🥂 "],
-    "surprise": ["🤯 ", "😲 ", "😮 ", "💥 ", "⚡ ", "⁉️ "],
-    "negative": ["😟 ", "😔 ", "🆘 ", "❌ ", "⚠️ ", "🩹 "],
-    "emotional": ["🥺 ", "❤️ ", "💖 ", "🙏 ", "🌈 ", "🌻 ", "🫂 "]
+    "positive": ["Acha! 🤩 ", "Ji! ✨ ", "Zaroor! 🌟 ", "Shabash! ✅ ", "Bilkul! 🎯 ", "🔥 ", "🚀 "],
+    "relief": ["Shukriya! 🎉 ", "Dhanyawad! 🎊 ", "🙌 ", "Sahi hai! 🥳 ", "🎈 ", "🥂 "],
+    "surprise": ["Arre! 🤯 ", "Oho! 😲 ", "😮 ", "💥 ", "⚡ ", "⁉️ "],
+    "negative": ["Ofo! 😔 ", "Dhyan rakhiye! 🆘 ", "❌ ", "⚠️ ", "🩹 "],
+    "emotional": ["Ji! 🙏 ", "🥺 ", "❤️ ", "💖 ", "🌈 ", "🌻 ", "🫂 "]
 }
 
 INTENT_EMOTION_MAP = {
@@ -45,7 +45,8 @@ class LLMService:
     Falls back to knowledge base for VaidyaGo questions, then to local extraction.
     """
 
-    BACKENDS = ["mistral", "knowledge", "fallback"]
+    # Prioritize 'knowledge' (local lookup) for speed, then 'mistral' (LLM), then 'fallback' (rule-based)
+    BACKENDS = ["knowledge", "mistral", "fallback"]
 
     @staticmethod
     def _add_personality(response_json: str) -> str:
@@ -67,8 +68,9 @@ class LLMService:
                 if not any(message.startswith(p.strip()) for cat in INTERJECTIONS.values() for p in cat):
                     message = prefix + message
             
-            # Add quote sometimes
-            if random.random() < 0.2:
+            # Add quote sometimes (only if it's primarily English)
+            is_hindi = any('\u0900' <= char <= '\u097F' for char in message)
+            if not is_hindi and random.random() < 0.2:
                 message += f"\n\n💡 Remember: \"{random.choice(HEALTH_QUOTES)}\""
             
             data["message"] = message

@@ -2,9 +2,16 @@ from rest_framework import serializers
 from .models import Medication, Pharmacy, PrescriptionRequest
 
 class MedicationSerializer(serializers.ModelSerializer):
+    days_left = serializers.SerializerMethodField()
+
     class Meta:
         model = Medication
-        fields = ['id','name']
+        fields = ['id', 'name', 'dosage', 'days_left']
+
+    def get_days_left(self, obj):
+        # Retrieve days_left from context (passed by the view)
+        expiring_data = self.context.get('expiring_data', {})
+        return expiring_data.get(obj.name)
 
 
 class PharmacySerializer(serializers.ModelSerializer):

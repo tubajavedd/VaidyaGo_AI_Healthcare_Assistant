@@ -1,0 +1,6 @@
+- [ ] Update `tts_service.py` to use Coqui TTS
+    - [ ] Import TTS and initialize singleton
+    - [ ] Update `generate_speech` with Coqui TTS logic
+    - [ ] Add fallback to `edge_tts`
+- [ ] Verify integration with a test script
+- [ ] Clean up scratch files

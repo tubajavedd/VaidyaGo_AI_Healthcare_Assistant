@@ -28,6 +28,9 @@ class IntentService:
         - ai_analytics (params: none)
         - chat (no action)
 
+        LANGUAGE RULES:
+        Detect the language the user is using. If the user speaks in Hindi, or asks you to speak in Hindi, you MUST reply in Hindi using Hinglish (Hindi written in the English alphabet, e.g., "Namaste, aap kaise hain?") in the "message" field. Do NOT use the Devanagari script.
+
         Return format: {"intent": "string", "action": "string or null", "message": "conversational response", "data": {}}
         """
         prompt = f"History: {history}\nMessage: {message}"

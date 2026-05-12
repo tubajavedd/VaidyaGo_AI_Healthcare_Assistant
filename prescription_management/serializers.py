@@ -16,6 +16,7 @@ class PrescriptionSerializer(serializers.ModelSerializer):
             'patient',
             'image',
             'file',
+            'document_name',
             'document_type',
             'doctor_name',
             'hospital_name',
