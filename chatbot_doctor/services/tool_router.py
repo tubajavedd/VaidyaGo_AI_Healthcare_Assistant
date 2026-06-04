@@ -33,6 +33,8 @@ class ToolRouter:
         handlers = {
             "get_my_slots": ToolRouter._get_my_slots,
             "generate_slots": ToolRouter._generate_slots,
+            "delete_slot": ToolRouter._delete_slot,
+            "delete_all_slots": ToolRouter._delete_all_slots,
             "get_my_appointments": ToolRouter._get_my_appointments,
             "get_doctor_profile": ToolRouter._get_doctor_profile_handler,
             "get_professional_info": ToolRouter._get_professional_info,
@@ -46,6 +48,9 @@ class ToolRouter:
             "update_professional_info": ToolRouter._update_professional_info,
             "update_hospital_info": ToolRouter._update_hospital_info,
             "remind_appointments": ToolRouter._remind_appointments,
+            "get_pending_appointments": ToolRouter._get_pending_appointments,
+            "get_recent_patients": ToolRouter._get_recent_patients,
+            "submit_for_approval": ToolRouter._submit_for_approval,
             "reschedule_appointment": ToolRouter._reschedule_appointment,
             "get_appointment_details": ToolRouter._get_appointment_details,
             "create_appointment": ToolRouter._create_appointment,
@@ -169,8 +174,8 @@ class ToolRouter:
         slot_list = [
             {
                 "id": s.id,
-                "start": s.start_time.strftime("%H:%M"),
-                "end": s.end_time.strftime("%H:%M"),
+                "start": s.start_time.strftime("%I:%M %p"),
+                "end": s.end_time.strftime("%I:%M %p"),
                 "date": s.start_time.strftime("%Y-%m-%d"),
                 "booked": s.is_booked
             }
@@ -178,54 +183,219 @@ class ToolRouter:
         ]
 
         return {
-            "message": f"I found {len(slot_list)} slots for you.",
+            "message": f"I found {len(slot_list)} slots for you on {target_date.strftime('%A, %b %d')}.",
             "action_executed": True,
             "data": {"slots": slot_list},
         }
 
     @staticmethod
     def _generate_slots(data, doctor):
-        from DoctorSlot.utils import generate_slots_for_doctor
+        from DoctorSlot.models import DoctorSlot, TimeSlot
+        from DoctorSlot.utils import generate_timeslots_from_template
         from django.utils import timezone
         import datetime
-        
-        target_date_str = data.get("date") or data.get("start_date")
-        target_date = timezone.now().date()
 
-        if target_date_str:
-            if target_date_str.lower() == "today":
-                target_date = timezone.now().date()
-            elif target_date_str.lower() == "tomorrow":
-                target_date = timezone.now().date() + datetime.timedelta(days=1)
-            else:
+        # 1. Parse Dates (Support relative 'today', 'tomorrow')
+        today = timezone.now().date()
+        
+        def parse_date(d_str, default):
+            if not d_str: return default
+            d_str = str(d_str).lower().strip()
+            if d_str == "today": return today
+            if d_str == "tomorrow": return today + datetime.timedelta(days=1)
+            try:
+                return datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+            except ValueError:
+                return default
+
+        # 2. Robust Time Parsing (Handles 10am, 2pm, 10:00 AM, etc.)
+        def parse_time(t_str, default):
+            if not t_str: return default
+            t_str = str(t_str).lower().strip().replace(" ", "")
+            formats = ["%H:%M", "%I%p", "%I:%M%p", "%H:%M:%S"]
+            for fmt in formats:
                 try:
-                    target_date = datetime.datetime.strptime(target_date_str, "%Y-%m-%d").date()
+                    return datetime.datetime.strptime(t_str, fmt).time()
                 except ValueError:
-                    # Try other formats if needed or stick to standard
-                    pass
+                    continue
+            return default
 
         try:
-            generate_slots_for_doctor(doctor, target_date)
+            start_date = parse_date(data.get("start_date") or data.get("date"), today)
+            end_date = parse_date(data.get("end_date"), start_date)
+            from_time = parse_time(data.get("from_time"), datetime.time(10, 0))
+            to_time = parse_time(data.get("to_time"), datetime.time(13, 0))
             
-            # Fetch the newly created slots to show them immediately
-            slots_data = ToolRouter._get_my_slots({"date": target_date.strftime("%Y-%m-%d")}, doctor)
-            slot_count = len(slots_data.get("data", {}).get("slots", []))
+            # 3. Robust Duration Parsing (Extract digits from "10min" or "30 mins")
+            duration_val = data.get("slot_duration") or 30
+            if isinstance(duration_val, str):
+                import re
+                match = re.search(r'\d+', duration_val)
+                duration = int(match.group()) if match else 30
+            else:
+                duration = int(duration_val)
+
+            # Create a DoctorSlot template record
+            doctor_slot = DoctorSlot.objects.create(
+                doctor=doctor,
+                from_date=start_date,
+                to_date=end_date,
+                from_time=from_time,
+                to_time=to_time,
+                slot_duration=duration,
+                is_active=True
+            )
+            
+            # Generate the individual TimeSlot records
+            generate_timeslots_from_template(doctor_slot)
+            
+            # Count how many slots were created/exist for the start date
+            new_slots_count = TimeSlot.objects.filter(
+                doctor=doctor, 
+                start_time__date__range=(start_date, end_date)
+            ).count()
+
+            date_range_str = f"on {start_date.strftime('%b %d, %Y')}" if start_date == end_date else f"from {start_date.strftime('%b %d')} to {end_date.strftime('%b %d, %Y')}"
+            time_range_str = f"between {from_time.strftime('%I:%M %p')} and {to_time.strftime('%I:%M %p')}"
             
             return {
-                "message": f"I have successfully generated {slot_count} available time slots for you on {target_date.strftime('%A, %b %d')}. You are now open for bookings!",
+                "message": f"I have successfully generated your availability {date_range_str} {time_range_str} with {duration}-minute slots. You now have {new_slots_count} total slots in this period.",
                 "action_executed": True,
                 "data": {
-                    "date": target_date.strftime("%Y-%m-%d"),
-                    "slots": slots_data.get("data", {}).get("slots", [])
+                    "start_date": str(start_date),
+                    "end_date": str(end_date),
+                    "slots_count": new_slots_count
                 },
             }
         except Exception as e:
             logger.error(f"Error in _generate_slots: {str(e)}")
             return {
-                "message": f"I encountered an error while trying to generate your slots: {str(e)}",
+                "message": f"I encountered an error while generating your slots: {str(e)}",
                 "action_executed": False,
                 "data": {},
             }
+
+    @staticmethod
+    def _parse_time_string(time_str):
+        import datetime
+        if not time_str:
+            return None
+        time_str = str(time_str).strip().lower().replace(" ", "")
+        formats = ["%H:%M", "%I%p", "%I:%M%p", "%H%M"]
+        for fmt in formats:
+            try:
+                return datetime.datetime.strptime(time_str, fmt).time()
+            except ValueError:
+                continue
+        return None
+
+    @staticmethod
+    def _delete_slot(data, doctor):
+        slot_id = data.get("slot_id")
+        date_str = data.get("date")
+        start_time = data.get("start_time")
+        end_time = data.get("end_time")
+
+        if slot_id:
+            slot = TimeSlot.objects.filter(id=slot_id, doctor=doctor).first()
+            if not slot:
+                return {
+                    "message": f"I could not find a slot with id {slot_id} for your profile.",
+                    "action_executed": False,
+                    "data": {}
+                }
+            slot.delete()
+            return {
+                "message": f"Slot {slot_id} has been deleted successfully.",
+                "action_executed": True,
+                "data": {"deleted_slot_id": slot_id}
+            }
+
+        if date_str and start_time:
+            parsed_time = ToolRouter._parse_time_string(start_time)
+            if not parsed_time:
+                return {
+                    "message": "I could not parse the start time you provided. Use HH:MM or 10:00 AM format.",
+                    "action_executed": False,
+                    "data": {}
+                }
+            slots = TimeSlot.objects.filter(
+                doctor=doctor,
+                start_time__date=date_str,
+                start_time__time=parsed_time
+            )
+            if not slots.exists():
+                return {
+                    "message": f"No slot found on {date_str} at {start_time}.",
+                    "action_executed": False,
+                    "data": {}
+                }
+            deleted_count = slots.count()
+            slots.delete()
+            return {
+                "message": f"Deleted {deleted_count} slot(s) on {date_str} at {start_time}.",
+                "action_executed": True,
+                "data": {"deleted_count": deleted_count}
+            }
+
+        if date_str:
+            slots = TimeSlot.objects.filter(doctor=doctor, start_time__date=date_str)
+            if not slots.exists():
+                return {
+                    "message": f"No slots found on {date_str} to delete.",
+                    "action_executed": False,
+                    "data": {}
+                }
+            deleted_count = slots.count()
+            slots.delete()
+            return {
+                "message": f"Deleted {deleted_count} slot(s) for {date_str}.",
+                "action_executed": True,
+                "data": {"deleted_count": deleted_count}
+            }
+
+        return {
+            "message": "Please tell me the slot to delete by slot_id, or provide a date and time, or say delete all slots.",
+            "action_executed": False,
+            "data": {}
+        }
+
+    @staticmethod
+    def _delete_all_slots(data, doctor):
+        delete_all = data.get("all") or data.get("delete_all") or data.get("confirm")
+        date_str = data.get("date")
+
+        if date_str:
+            slots = TimeSlot.objects.filter(doctor=doctor, start_time__date=date_str)
+            if not slots.exists():
+                return {
+                    "message": f"No slots found on {date_str} to delete.",
+                    "action_executed": False,
+                    "data": {}
+                }
+            deleted_count = slots.count()
+            slots.delete()
+            return {
+                "message": f"Deleted {deleted_count} slot(s) on {date_str}.",
+                "action_executed": True,
+                "data": {"deleted_count": deleted_count}
+            }
+
+        if delete_all in [True, "true", "yes", "all", "delete_all", "confirm"] or data.get("delete") == "all":
+            slots = TimeSlot.objects.filter(doctor=doctor)
+            deleted_count = slots.count()
+            slots.delete()
+            return {
+                "message": f"Deleted all {deleted_count} slots for your profile.",
+                "action_executed": True,
+                "data": {"deleted_count": deleted_count}
+            }
+
+        return {
+            "message": "Please confirm you want to delete all slots by saying 'delete all slots' or provide a date to delete slots for that date.",
+            "action_executed": False,
+            "data": {}
+        }
 
     @staticmethod
     def _get_my_appointments(data, doctor):
@@ -247,7 +417,7 @@ class ToolRouter:
             {
                 "id": a.id,
                 "patient": a.patient_name,
-                "time": a.start_time.strftime("%H:%M"),
+                "time": a.start_time.strftime("%I:%M %p"),
                 "date": a.start_time.strftime("%Y-%m-%d"),
                 "status": a.status
             }
@@ -255,7 +425,7 @@ class ToolRouter:
         ]
 
         return {
-            "message": f"You have {len(appt_list)} appointments scheduled.",
+            "message": f"You have {len(appt_list)} appointments scheduled for {date_str if date_str else 'today'}.",
             "action_executed": True,
             "data": {"appointments": appt_list},
         }
@@ -590,3 +760,62 @@ class ToolRouter:
             return {"message": response.data.get("error", "Failed to create appointment."), "action_executed": False, "data": {}}
         except Exception as e:
             return {"message": f"Error creating appointment: {str(e)}", "action_executed": False, "data": {}}
+    @staticmethod
+    def _get_pending_appointments(data, doctor):
+        try:
+            pending = Appointment.objects.filter(doctor=doctor, status='pending').order_by("-start_time")
+            if not pending.exists():
+                return {"message": "You have no pending appointment requests.", "action_executed": True, "data": {"appointments": []}}
+            
+            appt_list = [
+                {
+                    "id": a.id,
+                    "patient": a.patient_name,
+                    "time": a.start_time.strftime("%H:%M"),
+                    "date": a.start_time.strftime("%Y-%m-%d"),
+                    "type": a.appointment_type
+                }
+                for a in pending
+            ]
+            msg = f"You have {len(appt_list)} pending requests:\n" + "\n".join([f"- {a['patient']} ({a['date']} at {a['time']})" for a in appt_list])
+            return {"message": msg, "action_executed": True, "data": {"appointments": appt_list}}
+        except Exception as e:
+            return {"message": f"Error fetching pending appointments: {str(e)}", "action_executed": False, "data": {}}
+
+    @staticmethod
+    def _get_recent_patients(data, doctor):
+        try:
+            recent = Appointment.objects.filter(doctor=doctor, status='outpatient').order_by("-start_time")[:10]
+            if not recent.exists():
+                return {"message": "You have no recent patient records.", "action_executed": True, "data": {"patients": []}}
+            
+            patient_list = [
+                {
+                    "id": a.id,
+                    "patient": a.patient_name,
+                    "date": a.start_time.strftime("%Y-%m-%d"),
+                    "disease": a.patient_disease or "N/A"
+                }
+                for a in recent
+            ]
+            msg = f"Your recently consulted patients:\n" + "\n".join([f"- {p['patient']} (Visited: {p['date']})" for p in patient_list])
+            return {"message": msg, "action_executed": True, "data": {"patients": patient_list}}
+        except Exception as e:
+            return {"message": f"Error fetching recent patients: {str(e)}", "action_executed": False, "data": {}}
+
+    @staticmethod
+    def _submit_for_approval(data, doctor):
+        try:
+            from Dr_personalInfo.views import DoctorSubmitView
+            # Create a mock request
+            class MockRequest:
+                def __init__(self, user): self.user = user
+            
+            view = DoctorSubmitView()
+            response = view.post(MockRequest(None), pk=doctor.id) # pk is doctor_id
+            
+            if response.status_code == 200:
+                return {"message": "Your profile has been submitted for administrator approval. You will be notified once reviewed.", "action_executed": True, "data": {}}
+            return {"message": "Submission failed. Please ensure all profile sections are complete.", "action_executed": False, "data": {}}
+        except Exception as e:
+            return {"message": f"Error during submission: {str(e)}", "action_executed": False, "data": {}}

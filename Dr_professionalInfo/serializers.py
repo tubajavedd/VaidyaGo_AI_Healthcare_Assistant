@@ -17,4 +17,11 @@ class DoctorProfessionalInfoSerializer(serializers.ModelSerializer):
             'created_at'
         ]
 
+        extra_kwargs = {
+            'doctor_employee_id': {
+                'required': False,
+                'allow_blank': True,
+            }
+        }
+
         read_only_fields = ['id', 'created_at']

@@ -6,35 +6,19 @@ logger = logging.getLogger(__name__)
 
 class IntentService:
     @staticmethod
-    def extract_intent_with_llm(message, history):
-        system_prompt = """
-        You are a platform admin intent extractor. Analyze the administrator's message and return a JSON object.
-        Available Actions:
-        - dashboard_summary (params: none) - Use this for 'analyze dashboard', 'how is the platform', 'overall status', etc.
-        - doctor_management (params: filter, action, doctor_id)
-        - doctor_approval (params: doctor_id, action)
-        - patient_management (params: filter, action, patient_id)
-        - appointments_management (params: filter, action, appointment_id)
-        - slot_management (params: action)
-        - revenue_analytics (params: period)
-        - user_analytics (params: none)
-        - notifications (params: target, message)
-        - support_tickets (params: action, ticket_id)
-        - system_health (params: none)
-        - security (params: action)
-        - reports (params: report_type)
-        - maintenance (params: action)
-        - logs (params: category)
-        - ai_analytics (params: none)
-        - chat (no action)
-
-        LANGUAGE RULES:
-        Detect the language the user is using. If the user speaks in Hindi, or asks you to speak in Hindi, you MUST reply in Hindi using Hinglish (Hindi written in the English alphabet, e.g., "Namaste, aap kaise hain?") in the "message" field. Do NOT use the Devanagari script.
-
-        Return format: {"intent": "string", "action": "string or null", "message": "conversational response", "data": {}}
+    def extract_intent_with_llm(message, history, user=None, memory_context=""):
         """
-        prompt = f"History: {history}\nMessage: {message}"
-        response = MistralService.generate_raw_response(prompt, system_prompt)
+        Use LLM to explicitly extract intent and data using PromptService.
+        """
+        from chatbot_admin.services.prompt_service import PromptService
+        prompt = PromptService.build_prompt(message, user, memory_context, history)
+        
+        # Pass full prompt with the required system prompt argument
+        response = MistralService.generate_raw_response(prompt, "You are a platform admin assistant. Return valid JSON only.")
+        
+        if not response:
+            return {"intent": "chat", "action": None, "message": "I'm not sure how to help with that specifically.", "data": {}}
+
         response_text = response.strip()
         if response_text.startswith("```json"):
             response_text = response_text[7:-3].strip()

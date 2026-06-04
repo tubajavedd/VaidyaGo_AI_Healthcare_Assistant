@@ -26,6 +26,26 @@ def generate_slots_for_doctor(doctor, target_date=None):
     generate_time_slots(doctor, target_date, time(10, 0), time(13, 0))  # Morning
     generate_time_slots(doctor, target_date, time(16, 0), time(19, 0))  # Evening
 
+def generate_timeslots_from_template(doctor_slot):
+    """
+    Generates individual TimeSlot objects based on a DoctorSlot template.
+    """
+    current_date = doctor_slot.from_date
+    while current_date <= doctor_slot.to_date:
+        current_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.from_time))
+        end_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.to_time))
+        while current_dt < end_dt:
+            slot_end = current_dt + timedelta(minutes=doctor_slot.slot_duration)
+            # Check if this exact slot already exists to avoid duplicates
+            if not TimeSlot.objects.filter(doctor=doctor_slot.doctor, start_time=current_dt).exists():
+                TimeSlot.objects.create(
+                    doctor=doctor_slot.doctor,
+                    start_time=current_dt,
+                    end_time=slot_end
+                )
+            current_dt = slot_end
+        current_date += timedelta(days=1)
+
 def generate_time_slots(doctor, date, start, end):
     current = timezone.make_aware(datetime.combine(date, start))
     end_time = timezone.make_aware(datetime.combine(date, end))

@@ -8,7 +8,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from datetime import datetime, timedelta
 from DoctorSlot.utils import generate_slots_for_week
-from .models import TimeSlot
+from .models import TimeSlot, DoctorSlot
 
 
 @csrf_exempt
@@ -42,6 +42,9 @@ class DoctorSlotListCreateAPI(APIView):
 
     def get(self, request):
         slots = DoctorSlot.objects.filter(is_active=True)
+        doctor_id = request.query_params.get('doctor')
+        if doctor_id:
+            slots = slots.filter(doctor_id=doctor_id)
         serializer = DoctorSlotSerializer(slots, many=True)
         return Response(serializer.data)
 
@@ -49,28 +52,13 @@ class DoctorSlotListCreateAPI(APIView):
         serializer = DoctorSlotSerializer(data=request.data)
         if serializer.is_valid():
             doctor_slot = serializer.save()
-            self._generate_timeslots_for_doctor_slot(doctor_slot)
+            from .utils import generate_timeslots_from_template
+            generate_timeslots_from_template(doctor_slot)
             return Response(
                 {"message": "Doctor slot created successfully"},
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def _generate_timeslots_for_doctor_slot(self, doctor_slot):
-        current_date = doctor_slot.from_date
-        while current_date <= doctor_slot.to_date:
-            current_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.from_time))
-            end_dt = timezone.make_aware(datetime.combine(current_date, doctor_slot.to_time))
-            while current_dt < end_dt:
-                slot_end = current_dt + timedelta(minutes=doctor_slot.slot_duration)
-                if not TimeSlot.objects.filter(doctor=doctor_slot.doctor, start_time=current_dt).exists():
-                    TimeSlot.objects.create(
-                        doctor=doctor_slot.doctor,
-                        start_time=current_dt,
-                        end_time=slot_end
-                    )
-                current_dt = slot_end
-            current_date += timedelta(days=1)
 
 
 class DoctorSlotDetailAPI(APIView):
@@ -153,10 +141,16 @@ class DoctorBookedSlotsAPI(APIView):
         except DoctorPersonalInfo.DoesNotExist:
             return Response({"error": "Doctor not found"}, status=404)
 
-        slots = TimeSlot.objects.filter(doctor=doctor, is_booked=True)
-        serializer = TimeSlotSerializer(slots, many=True)
+        date_param = request.query_params.get('date')
+        queryset = TimeSlot.objects.filter(doctor=doctor, is_booked=True)
+
+        if date_param:
+            queryset = queryset.filter(start_time__date=date_param)
+
+        serializer = TimeSlotSerializer(queryset, many=True)
         return Response({
             "doctor_id": doctor_id,
+            "date": date_param,
             "booked_slots": serializer.data
         })
 
@@ -164,12 +158,18 @@ class DoctorBookedSlotsAPI(APIView):
 class DoctorAllSlotsAPI(APIView):
     def get(self, request, doctor_id):
         date_param = request.query_params.get('date')
-        
+        booked_param = request.query_params.get('booked')
+
         queryset = TimeSlot.objects.filter(doctor_id=doctor_id)
-        
+
+        if booked_param == 'true':
+            queryset = queryset.filter(is_booked=True)
+        elif booked_param == 'false':
+            queryset = queryset.filter(is_booked=False)
+
         if date_param:
             queryset = queryset.filter(start_time__date=date_param)
-            
+
         serializer = TimeSlotSerializer(queryset, many=True)
         return Response({
             "doctor_id": doctor_id,

@@ -1,8 +1,11 @@
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from .models import Appointment
-from .serializers import AppointmentSerializer
+from .serializers import AppointmentSerializer, PatientAppointmentSerializer
+from django.db.models import Q, Count
+from django.db.models.functions import TruncMonth
 
 
 # 🔹 CREATE
@@ -25,7 +28,24 @@ def create_appointment(request):
             if slot.is_booked:
                 return Response({"error": "Slot already booked"}, status=status.HTTP_400_BAD_REQUEST)
 
-            serializer = AppointmentSerializer(data=request.data)
+            # Preserve authenticated patient identity when available.
+            payload = request.data.copy()
+            if request.user and request.user.is_authenticated:
+                if not payload.get('user'):
+                    payload['user'] = request.user.id
+                if not payload.get('patient_email') and getattr(request.user, 'email', None):
+                    payload['patient_email'] = request.user.email
+
+                patient_name = payload.get('patient_name')
+                if not patient_name or patient_name.strip() in ['', 'Demo Patient', 'User', 'Patient']:
+                    first_name = getattr(request.user, 'first_name', '') or ''
+                    last_name = getattr(request.user, 'last_name', '') or ''
+                    full_name = f"{first_name} {last_name}".strip()
+                    if not full_name:
+                        full_name = getattr(request.user, 'full_name', None) or getattr(request.user, 'username', None) or payload.get('patient_email')
+                    payload['patient_name'] = full_name or payload.get('patient_name')
+
+            serializer = AppointmentSerializer(data=payload)
             
             if serializer.is_valid():
                 appt = serializer.save(
@@ -35,9 +55,8 @@ def create_appointment(request):
                     slot=slot
                 )
 
-                slot.is_booked = True
-                slot.save()
-
+                # Do not reserve the slot until the doctor accepts the request.
+                # This keeps Addslot unchanged until confirmation.
                 return Response(AppointmentSerializer(appt).data, status=status.HTTP_201_CREATED)
 
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -54,7 +73,7 @@ def list_appointments(request):
     date = request.GET.get('date')
     status_filter = request.GET.get('status')
 
-    queryset = Appointment.objects.all()
+    queryset = Appointment.objects.all().select_related('doctor', 'slot')
 
     if doctor_id:
         queryset = queryset.filter(doctor_id=doctor_id)
@@ -75,7 +94,50 @@ def pending_appointments(request):
     if not doctor_id:
         return Response({"error": "doctor_id is required"}, status=status.HTTP_400_BAD_REQUEST)
     
-    appointments = Appointment.objects.filter(doctor_id=doctor_id, status='pending').order_by('-created_at')
+    appointments = Appointment.objects.filter(doctor_id=doctor_id, status='pending').select_related('doctor', 'slot').order_by('-created_at')
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def recent_patients(request):
+    """
+    Get patients who have already visited/completed consultation.
+    Filter by status='outpatient'.
+    """
+    doctor_id = request.GET.get('doctor_id')
+    if not doctor_id:
+        return Response({"error": "doctor_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    # Recently visited means status is 'outpatient'
+    appointments = Appointment.objects.filter(
+        doctor_id=doctor_id, 
+        status='outpatient'
+    ).select_related('doctor', 'slot').order_by('-start_time')
+    
+    serializer = AppointmentSerializer(appointments, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_history(request):
+    """
+    Get all previous appointments for a specific patient identified by email or phone.
+    """
+    email = request.GET.get('email')
+    phone = request.GET.get('phone')
+    
+    if not email and not phone:
+        return Response({"error": "email or phone is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+    query = Q()
+    if email:
+        query |= Q(patient_email=email)
+    if phone:
+        query |= Q(patient_phone=phone)
+        
+    appointments = Appointment.objects.filter(query).select_related('doctor', 'slot').order_by('-start_time')
     serializer = AppointmentSerializer(appointments, many=True)
     return Response(serializer.data)
 
@@ -162,6 +224,10 @@ def accept_appointment(request, id):
     if appt.status == "confirmed":
         return Response({"error": "Already confirmed"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Prevent accepting if the requested slot has already been booked by another confirmation.
+    if appt.slot and appt.slot.is_booked:
+        return Response({"error": "Requested slot has already been booked"}, status=status.HTTP_400_BAD_REQUEST)
+
     # Update clinical details if provided during acceptance
     location = request.data.get("location")
     appt_type = request.data.get("appointment_type")
@@ -171,6 +237,10 @@ def accept_appointment(request, id):
 
     appt.status = "confirmed"
     appt.save()
+
+    if appt.slot:
+        appt.slot.is_booked = True
+        appt.slot.save()
 
     # Send Notification
     notify_appointment_change(
@@ -275,3 +345,236 @@ def reschedule_appointment(request, id):
 
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# 👤 PATIENT VIEW - Get patient's appointments
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_appointments(request):
+    """
+    Get all appointments for the authenticated patient/user.
+    
+    Query Parameters:
+    - status: Filter by appointment status (pending, confirmed, booked, cancelled, rejected, outpatient)
+    - date_from: Filter appointments from this date (YYYY-MM-DD format)
+    - date_to: Filter appointments until this date (YYYY-MM-DD format)
+    
+    Returns:
+    - List of appointments with doctor details, sorted by appointment date
+    """
+    from django.utils import timezone
+    from datetime import datetime
+    
+    user = request.user
+    
+    # Filter appointments for the current user/patient
+    # Match by user ID or email
+    queryset = Appointment.objects.filter(
+        Q(user=user.id) | Q(patient_email=user.email)
+    ).select_related('doctor', 'slot').order_by('-start_time')
+    
+    # Apply optional filters
+    status_filter = request.GET.get('status')
+    if status_filter:
+        queryset = queryset.filter(status=status_filter.lower())
+    
+    date_from = request.GET.get('date_from')
+    if date_from:
+        try:
+            date_from_obj = datetime.strptime(date_from, '%Y-%m-%d').date()
+            queryset = queryset.filter(start_time__date__gte=date_from_obj)
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format for date_from. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    date_to = request.GET.get('date_to')
+    if date_to:
+        try:
+            date_to_obj = datetime.strptime(date_to, '%Y-%m-%d').date()
+            queryset = queryset.filter(start_time__date__lte=date_to_obj)
+        except ValueError:
+            return Response(
+                {"error": "Invalid date format for date_to. Use YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    
+    if not queryset.exists():
+        return Response({
+            "message": "No appointments found",
+            "appointments": []
+        })
+    
+    serializer = PatientAppointmentSerializer(queryset, many=True)
+    return Response({
+        "message": "Appointments retrieved successfully",
+        "count": queryset.count(),
+        "appointments": serializer.data
+    })
+
+
+# 📋 Get single appointment details for patient
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_appointment_detail(request, id):
+    """
+    Get detailed information about a specific appointment for the patient.
+    
+    Returns:
+    - Appointment details with full doctor information and slot details
+    """
+    user = request.user
+    
+    try:
+        appt = Appointment.objects.get(
+            (Q(user=user.id) | Q(patient_email=user.email)) & Q(id=id)
+        )
+    except Appointment.DoesNotExist:
+        return Response(
+            {"error": "Appointment not found or you don't have permission to view it"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    serializer = PatientAppointmentSerializer(appt)
+    return Response({
+        "message": "Appointment details retrieved successfully",
+        "appointment": serializer.data
+    })
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def complete_appointment(request, id):
+    """
+    Mark an appointment as completed (status = 'outpatient').
+    """
+    try:
+        appointment = Appointment.objects.get(id=id)
+        appointment.status = 'outpatient'
+        appointment.save()
+        
+        return Response({
+            "message": "Consultation completed successfully",
+            "status": "outpatient"
+        }, status=status.HTTP_200_OK)
+    except Appointment.DoesNotExist:
+        return Response({"error": "Appointment not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_gender_stats(request):
+    """
+    Get patient analytics by gender for the admin dashboard.
+    Returns counts of male and female patients per month for the current year.
+    """
+    from datetime import datetime
+    current_year = datetime.now().year
+    
+    stats = Appointment.objects.filter(start_time__year=current_year).annotate(
+        month_trunc=TruncMonth('start_time')
+    ).values('month_trunc', 'patient_gender').annotate(
+        count=Count('id')
+    ).order_by('month_trunc')
+    
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    data_map = {i: {"male": 0, "female": 0} for i in range(1, 13)}
+    
+    for s in stats:
+        if s['month_trunc']:
+            m = s['month_trunc'].month
+            gender = (s['patient_gender'] or "").lower()
+            if "male" == gender:
+                data_map[m]["male"] += s['count']
+            elif "female" == gender:
+                data_map[m]["female"] += s['count']
+    
+    result = []
+    for i in range(1, 13):
+        result.append({
+            "month": month_names[i-1],
+            "male": data_map[i]["male"],
+            "female": data_map[i]["female"]
+        })
+        
+    return Response(result)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def patient_analytics_summary(request):
+    """
+    Get summary percentages and weekly trends for gender distribution.
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    total = Appointment.objects.count()
+    if total == 0:
+        return Response({
+            "male_pct": 0,
+            "female_pct": 0,
+            "weekly_male": [],
+            "weekly_female": []
+        })
+    
+    male_count = Appointment.objects.filter(patient_gender__iexact='male').count()
+    female_count = Appointment.objects.filter(patient_gender__iexact='female').count()
+    
+    today = timezone.now().date()
+    weekly_male = []
+    weekly_female = []
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    
+    for i in range(6, -1, -1):
+        day = today - timedelta(days=i)
+        m_count = Appointment.objects.filter(start_time__date=day, patient_gender__iexact='male').count()
+        f_count = Appointment.objects.filter(start_time__date=day, patient_gender__iexact='female').count()
+        weekly_male.append({"day": days[day.weekday()], "value": m_count})
+        weekly_female.append({"day": days[day.weekday()], "value": f_count})
+        
+    return Response({
+        "male_pct": round((male_count / total) * 100, 2),
+        "female_pct": round((female_count / total) * 100, 2),
+        "weekly_male": weekly_male,
+        "weekly_female": weekly_female
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def dashboard_stats(request):
+    """
+    Get monthly statistics for the doctor's activity chart.
+    """
+    doctor_id = request.GET.get('doctor_id')
+    if not doctor_id:
+        return Response({"error": "doctor_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    from datetime import datetime
+    current_year = datetime.now().year
+    
+    stats = Appointment.objects.filter(
+        doctor_id=doctor_id,
+        start_time__year=current_year
+    ).annotate(
+        month_trunc=TruncMonth('start_time')
+    ).values('month_trunc').annotate(
+        consultations=Count('id'),
+        patients=Count('patient_email', distinct=True)
+    ).order_by('month_trunc')
+    
+    month_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    stats_dict = {s['month_trunc'].month: s for s in stats if s['month_trunc']}
+    
+    data = []
+    for i in range(1, 13):
+        m_stat = stats_dict.get(i, {'consultations': 0, 'patients': 0})
+        data.append({
+            "month": month_names[i-1],
+            "Consultations": m_stat['consultations'],
+            "Patients": m_stat['patients']
+        })
+        
+    return Response(data)

@@ -11,6 +11,7 @@ from SymptomChecker.models import DailySymptomVitals, Patient as SymptomPatient
 from Notifications.models import Notification
 from TodaySchedule_medication.models import Schedule
 from newRequest_activePrescription_medication.models import PrescriptionRequest, Medication, Pharmacy
+from editProfile.models import editProfile as UserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,9 @@ class ToolRouter:
 
         if action == "get_reminders" or action == "list_reminders":
             return ToolRouter._list_reminders(user)
+
+        if action == "Edit_profile" or action == "update_profile":
+            return ToolRouter._edit_profile(user, data)
 
         return {
             "message": message or f"I could not process the action '{action}'.",
@@ -1044,6 +1048,64 @@ class ToolRouter:
         )
 
     @staticmethod
+    def _edit_profile(user, data):
+        if not user:
+            return {"message": "Please log in to edit your profile.", "action_executed": False, "data": {}}
+
+        try:
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            
+            # Update fields if provided
+            fields_updated = []
+            if "full_name" in data:
+                profile.full_name = data["full_name"]
+                fields_updated.append("name")
+            if "phone_number" in data:
+                profile.phone_number = data["phone_number"]
+                fields_updated.append("phone")
+            if "email" in data:
+                profile.email = data["email"]
+                fields_updated.append("email")
+            if "dob" in data:
+                profile.dob = data["dob"]
+                fields_updated.append("date of birth")
+            if "gender" in data:
+                profile.gender = data["gender"].lower()
+                fields_updated.append("gender")
+            if "residential_address" in data:
+                profile.residential_address = data["residential_address"]
+                fields_updated.append("address")
+            if "emergency_contact_name" in data:
+                profile.emergency_contact_name = data["emergency_contact_name"]
+                fields_updated.append("emergency contact name")
+            if "emergency_contact_number" in data:
+                profile.emergency_contact_number = data["emergency_contact_number"]
+                fields_updated.append("emergency contact number")
+
+            if not fields_updated:
+                return {
+                    "message": "What information would you like to update in your profile? (e.g., name, phone, address)",
+                    "action_executed": False,
+                    "data": {}
+                }
+
+            profile.save()
+            
+            updated_str = ", ".join(fields_updated)
+            return {
+                "message": f"✅ Your profile ({updated_str}) has been updated successfully.",
+                "action_executed": True,
+                "data": {"updated_fields": fields_updated}
+            }
+        except Exception as e:
+            logger.error(f"Profile update failed: {e}")
+            return {
+                "message": f"I couldn't update your profile: {str(e)}",
+                "action_executed": False,
+                "data": {}
+            }
+
+    @staticmethod
     def _list_reminders(user):
         if not user:
             return {"message": "Please log in to view reminders.", "action_executed": False, "data": {}}
@@ -1093,7 +1155,8 @@ class ToolRouter:
                 "get_notifications",
                 "set_reminder",
                 "get_reminders",
+                "Edit_profile",
             ],
-            "count": 16,
+            "count": 17,
             "category": category,
         }

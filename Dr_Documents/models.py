@@ -47,4 +47,5 @@ class DoctorDocument(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.document_type} - {self.user.username}"
+        username = self.user.username if self.user else "N/A"
+        return f"{self.document_type} - {username}"

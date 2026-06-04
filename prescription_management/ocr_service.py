@@ -316,10 +316,50 @@ class OCRService:
             return None
 
     # =========================================================
-    # OCR FALLBACK (TESSERACT)
+    # OCR VIA PADDLEOCR / FALLBACK (TESSERACT)
     # =========================================================
     @staticmethod
+    def extract_text_with_paddleocr(image_path: str) -> str:
+        try:
+            cache_dir = os.path.join(os.path.dirname(__file__), '..', '.paddlex_cache')
+            cache_dir = os.path.abspath(cache_dir)
+            os.makedirs(cache_dir, exist_ok=True)
+            os.environ['PADDLE_PDX_CACHE_HOME'] = cache_dir
+            os.environ['XDG_CACHE_HOME'] = cache_dir
+            os.environ['HOME'] = cache_dir
+
+            from paddleocr import PaddleOCR
+
+            ocr = PaddleOCR(use_angle_cls=True, lang='en', use_gpu=False)
+            result = ocr.ocr(image_path, cls=True)
+
+            text_lines = []
+            for page in result:
+                for line in page:
+                    if len(line) >= 2:
+                        extracted_text = line[1]
+                        if isinstance(extracted_text, tuple) and len(extracted_text) >= 2:
+                            text_lines.append(extracted_text[1])
+                        elif isinstance(extracted_text, str):
+                            text_lines.append(extracted_text)
+
+            text = "\n".join(text_lines).strip()
+            logger.info("PaddleOCR extracted text successfully")
+            print("\nRAW OCR TEXT (PaddleOCR):\n", text)
+            return text
+
+        except Exception as e:
+            logger.error(f"PaddleOCR error: {e}")
+            return ""
+
+    @staticmethod
     def extract_text_from_image(image_path: str) -> str:
+        try:
+            text = OCRService.extract_text_with_paddleocr(image_path)
+            if text:
+                return text
+        except Exception:
+            pass
 
         try:
             import cv2
@@ -348,7 +388,6 @@ class OCRService:
             )
 
             logger.info("OCR extracted text successfully")
-
             print("\nRAW OCR TEXT:\n", text)
 
             return text

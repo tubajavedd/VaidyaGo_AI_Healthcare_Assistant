@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 class ChatbotEngine:
     @staticmethod
     def process(user, message, session_id=None):
+        if isinstance(message, dict):
+            message = message.get('text') or message.get('message') or str(message)
+        elif message is None:
+            message = ''
+        else:
+            message = str(message)
         message = message.strip()
         
         # 1. Get or create session
@@ -26,7 +32,7 @@ class ChatbotEngine:
         history = ChatbotEngine._build_history(session)
         
         # 4. Extract intent and data
-        intent_data = IntentService.extract_intent_with_llm(message, history)
+        intent_data = IntentService.extract_intent_with_llm(message, history, user, memory_context)
         
         # 5. Handle tools
         action = intent_data.get("action")

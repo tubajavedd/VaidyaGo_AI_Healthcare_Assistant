@@ -21,7 +21,8 @@ class ChatbotEngine:
         
         # 3. Context & Intent
         history = ChatbotEngine._build_history(session)
-        intent_data = IntentService.extract_intent_with_llm(message, history)
+        memory_context = MemoryService.get_memory_context(user, session) if 'MemoryService' in globals() else ""
+        intent_data = IntentService.extract_intent_with_llm(message, history, user, memory_context)
         
         # 4. Action Execution
         action = intent_data.get("action")

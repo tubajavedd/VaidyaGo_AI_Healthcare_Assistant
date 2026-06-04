@@ -353,21 +353,25 @@ TOOLS_REGISTRY = {
         }
     },
 
-    "update_user_profile": {
-        "name": "update_user_profile",
-        "description": "Update user profile information",
+    "Edit_profile": {
+        "name": "Edit_profile",
+        "description": "Update user profile information such as name, phone, address, and emergency contact",
         "category": "profile",
-        "endpoint": "/auth/profile/update/",
-        "method": "POST",
+        "endpoint": "/profile/edit-profile/",
+        "method": "PUT",
         "parameters": {
-            "name": {"type": "string", "description": "Full name"},
-            "phone": {"type": "string", "description": "Phone number"},
-            "age": {"type": "integer", "description": "Age"},
-            "address": {"type": "string", "description": "Address"}
+            "full_name": {"type": "string", "description": "Full name", "required": False},
+            "phone_number": {"type": "string", "description": "Phone number", "required": False},
+            "email": {"type": "string", "description": "Email address", "required": False},
+            "dob": {"type": "string", "description": "Date of birth (YYYY-MM-DD)", "required": False},
+            "gender": {"type": "string", "description": "Gender (male, female, other)", "required": False},
+            "residential_address": {"type": "string", "description": "Full residential address", "required": False},
+            "emergency_contact_name": {"type": "string", "description": "Emergency contact name", "required": False},
+            "emergency_contact_number": {"type": "string", "description": "Emergency contact phone number", "required": False}
         },
         "response_format": {
             "success": True,
-            "message": "Profile updated"
+            "message": "Profile updated successfully"
         }
     },
 

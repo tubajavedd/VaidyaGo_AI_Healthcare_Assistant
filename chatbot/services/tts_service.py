@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import logging
 from django.conf import settings
@@ -21,19 +22,26 @@ def fix_pronunciation(text):
         text = text.replace(word, phonetic)
     return text
 
+def normalize_for_indian_speech(text):
+    # Keep the flow natural for Indian-style speech synthesis.
+    # Avoid long pauses and keep punctuation simple.
+    text = text.replace("...", ".")
+    text = text.replace("।", ".")
+    text = re.sub(r"\s+", " ", text)
+    text = text.strip()
+    return text
+
 def add_natural_pauses(text, use_ssml=False):
     if use_ssml:
-        # SSML specific breaks
-        text = text.replace(",", ', <break time="300ms"/>')
-        text = text.replace("।", '. <break time="500ms"/>')
-        text = text.replace("!", '! <break time="400ms"/>')
-        text = text.replace("?", '? <break time="400ms"/>')
+        # SSML specific breaks, but keep them short for fluent speech
+        text = text.replace(",", ', <break time="150ms"/>')
+        text = text.replace("।", '. <break time="220ms"/>')
+        text = text.replace("!", '! <break time="220ms"/>')
+        text = text.replace("?", '? <break time="220ms"/>')
         return f"<speak>{text}</speak>"
     else:
-        text = text.replace(",", ", ... ")
-        text = text.replace("।", ". ")
-        text = text.replace("!", "! ... ")
-        text = text.replace("?", "? ... ")
+        # Keep punctuation natural and avoid artificial ellipses
+        text = text.replace("।", ".")
         return text
 
 class CoquiTTS:
@@ -93,8 +101,8 @@ class TTSService:
 
         lang = 'hi-IN' if is_devanagari else 'en-IN'
 
-        # Apply pronunciation fixes
-        processed_text_base = fix_pronunciation(text)
+        # Apply pronunciation fixes and normalize for Indian-style fluency
+        processed_text_base = normalize_for_indian_speech(fix_pronunciation(text))
 
         # Create tts directory
         tts_dir = os.path.join(settings.MEDIA_ROOT, 'tts')
@@ -178,7 +186,7 @@ class TTSService:
                     'edge-tts', 
                     '--voice', voice_name, 
                     '--text', processed_text_base, 
-                    '--rate=-10%',
+                    '--rate=-5%',
                     '--write-media', filepath
                 ], check=True)
                 
